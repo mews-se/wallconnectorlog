@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+  - name: WallConnectorLog
+    type: frser-sqlite-datasource
+    uid: wcl-sqlite
+    access: proxy
+    isDefault: true
+    jsonData:
+      path: /data/wallconnectorlog.db

@@ -1,0 +1,38 @@
+services:
+  wallconnectorlog:
+    image: ghcr.io/mews-se/wallconnectorlog:latest
+    container_name: wallconnectorlog
+    environment:
+      - WC_HOST=${WC_HOST:?set WC_HOST to your Wall Connector's address}
+      - TZ=${TZ:-UTC}
+      - WC_INTERVAL_CHARGING=5
+      - WC_INTERVAL_CONNECTED=15
+      - WC_INTERVAL_IDLE=60
+      - WC_RETAIN_DAYS=90
+      - WC_GRAFANA_URL=:3399
+    volumes:
+      - ./data:/data
+    ports:
+      - "4680:4680"
+    restart: unless-stopped
+
+  grafana:
+    # Grafana with the datasource, dashboard, plugin and no-login access baked
+    # in — override any GF_* setting here, e.g. GF_AUTH_ANONYMOUS_ORG_ROLE=Editor.
+    image: ghcr.io/mews-se/wallconnectorlog-grafana:latest
+    container_name: wallconnectorlog-grafana
+    environment:
+      - TZ=${TZ:-UTC}
+    volumes:
+      # Read-write on purpose: SQLite in WAL mode needs to touch the -shm file
+      # even for readers.
+      - ./data:/data
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3399:3000"
+    depends_on:
+      - wallconnectorlog
+    restart: unless-stopped
+
+volumes:
+  grafana-data:

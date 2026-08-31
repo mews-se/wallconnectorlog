@@ -1,0 +1,210 @@
+{
+  "uid": "wallconnectorlog",
+  "title": "WallConnectorLog",
+  "tags": ["tesla", "wall connector", "ev"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Lifetime energy delivered",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": { "unit": "kwatth", "decimals": 1 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT energy_wh/1000.0 AS \"kWh\" FROM lifetime ORDER BY ts DESC LIMIT 1",
+          "queryText": "SELECT energy_wh/1000.0 AS \"kWh\" FROM lifetime ORDER BY ts DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Sessions recorded",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT COUNT(*) AS \"sessions\" FROM session WHERE is_open=0",
+          "queryText": "SELECT COUNT(*) AS \"sessions\" FROM session WHERE is_open=0"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Energy logged here",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "kwatth", "decimals": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT COALESCE(SUM(energy_wh),0)/1000.0 AS \"kWh\" FROM session WHERE is_open=0",
+          "queryText": "SELECT COALESCE(SUM(energy_wh),0)/1000.0 AS \"kWh\" FROM session WHERE is_open=0"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Thermal foldbacks",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT thermal_foldbacks AS \"foldbacks\" FROM lifetime ORDER BY ts DESC LIMIT 1",
+          "queryText": "SELECT thermal_foldbacks AS \"foldbacks\" FROM lifetime ORDER BY ts DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Delivered power",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "custom": { "fillOpacity": 18, "lineWidth": 2, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, power_w AS \"power\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, power_w AS \"power\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Grid voltage and frequency",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 1, "showPoints": "never" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "frequency" },
+            "properties": [
+              { "id": "unit", "value": "hertz" },
+              { "id": "custom.axisPlacement", "value": "right" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "voltage" },
+            "properties": [{ "id": "unit", "value": "volt" }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, grid_v AS \"voltage\", grid_hz AS \"frequency\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, grid_v AS \"voltage\", grid_hz AS \"frequency\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Temperatures",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": { "lineWidth": 1, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, handle_c AS \"handle\", pcba_c AS \"board\", mcu_c AS \"mcu\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, handle_c AS \"handle\", pcba_c AS \"board\", mcu_c AS \"mcu\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Charge sessions",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "started" },
+            "properties": [{ "id": "unit", "value": "dateTimeAsIso" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "kWh" },
+            "properties": [{ "id": "unit", "value": "kwatth" }, { "id": "decimals", "value": 2 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "peak kW" },
+            "properties": [{ "id": "unit", "value": "kwatt" }, { "id": "decimals", "value": 2 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "duration" },
+            "properties": [{ "id": "unit", "value": "s" }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT started_at*1000 AS \"started\", duration_s AS \"duration\", energy_wh/1000.0 AS \"kWh\", peak_power_w/1000.0 AS \"peak kW\", peak_handle_c AS \"peak handle C\", CASE WHEN grid_v_n>0 THEN ROUND(grid_v_sum/grid_v_n,1) END AS \"avg grid V\" FROM session ORDER BY started_at DESC LIMIT 500",
+          "queryText": "SELECT started_at*1000 AS \"started\", duration_s AS \"duration\", energy_wh/1000.0 AS \"kWh\", peak_power_w/1000.0 AS \"peak kW\", peak_handle_c AS \"peak handle C\", CASE WHEN grid_v_n>0 THEN ROUND(grid_v_sum/grid_v_n,1) END AS \"avg grid V\" FROM session ORDER BY started_at DESC LIMIT 500"
+        }
+      ]
+    }
+  ]
+}
