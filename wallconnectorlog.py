@@ -743,8 +743,8 @@ const f=(n,d=1)=>n==null?"–":Number(n).toFixed(d);
 const dur=s=>{if(s==null)return"–";s=Math.round(s);const h=Math.floor(s/3600),
 m=Math.floor(s%3600/60);return h?`${h} h ${m} min`:`${m} min`};
 const dt=t=>t?new Date(t*1000).toLocaleString(undefined,{dateStyle:"short",timeStyle:"short"}):"–";
-function tile(k,v,u){return `<div class="card"><div class="k">${k}</div>
-<div class="v">${v}${u?`<small>${u}</small>`:""}</div></div>`}
+function tile(k,v,u,small){return `<div class="card"><div class="k">${k}</div>
+<div class="v"${small?' style="font-size:17px"':""}>${v}${u?`<small>${u}</small>`:""}</div></div>`}
 // A bare port (":3399") is resolved against whatever host the page was opened
 // from, so the link works from any machine, not just the server itself.
 function grafanaHref(u){
@@ -782,6 +782,8 @@ async function load(){
   tile("Current",f(v.vehicle_current_a),"A")+
   tile("Grid voltage",f(v.grid_v),"V")+
   tile("Frequency",f(v.grid_hz,3),"Hz")+
+  tile("Phase voltage",[v.voltageA_v,v.voltageB_v,v.voltageC_v].map(x=>f(x,0)).join(" / "),"V",1)+
+  tile("Phase current",[v.currentA_a,v.currentB_a,v.currentC_a].map(x=>f(x)).join(" / "),"A",1)+
   tile("Handle",f(v.handle_temp_c),"°C")+
   tile("Board",f(v.pcba_temp_c),"°C")+
   (d.open_session?tile("In progress",f(d.open_session.energy_wh/1000,2),"kWh"):"");
@@ -790,7 +792,10 @@ async function load(){
   tile("Delivered",f(lt.energy_wh/1000,0),"kWh")+
   tile("Charge starts",lt.charge_starts??"–")+
   tile("Connector cycles",lt.connector_cycles??"–")+
+  tile("Cycles under load",lt.cycles_loaded??"–")+
   tile("Charging time",f(lt.charging_time_s/3600,0),"h")+
+  tile("Uptime",lt.uptime_s!=null?f(lt.uptime_s/86400,0):"–",lt.uptime_s!=null?"days":"")+
+  tile("Alert counter",lt.alert_count??"–")+
   tile("Thermal foldbacks",lt.thermal_foldbacks??"–"):
   '<div class="card"><div class="k">Lifetime</div><div class="v">–</div></div>';
 
