@@ -33,6 +33,7 @@ def vitals():
         "grid_v": 229.0, "grid_hz": 49.95,
         "vehicle_current_a": amps,
         "currentA_a": amps, "currentB_a": amps, "currentC_a": amps,
+        "currentN_a": 0.1 if charging else 0.0,
         "voltageA_v": 230.0 if charging else 2.1,
         "voltageB_v": 230.0 if charging else 0.0,
         "voltageC_v": 230.0 if charging else 2.2,
@@ -45,9 +46,12 @@ def vitals():
 BODIES = {
     "lifetime": lambda: {"energy_wh": 2734298, "charge_starts": 680,
                          "connector_cycles": 322, "charging_time_s": 1835002,
-                         "contactor_cycles": 680, "thermal_foldbacks": 0},
+                         "contactor_cycles": 680, "contactor_cycles_loaded": 34,
+                         "thermal_foldbacks": 0, "alert_count": 56000,
+                         "uptime_s": 46000000, "avg_startup_temp": 0.0},
     "version": lambda: {"firmware_version": "26.26.1", "part_number": "1529455-02-F"},
-    "wifi_status": lambda: {"wifi_rssi": -72, "wifi_connected": True},
+    "wifi_status": lambda: {"wifi_rssi": -72, "wifi_snr": 23,
+                            "wifi_connected": True, "internet": True},
     "vitals": vitals,
 }
 

@@ -22,7 +22,8 @@ cloud, no vendor API.
 
 - Live status, a power graph and the session table on a built-in web page
 - A session log: start, end, duration, energy, peak power, peak handle temperature, average grid voltage
-- Grafana with a ready-made dashboard, no login, up from the first start
+- Grafana with a ready-made dashboard — power, per-phase voltage and current, charger state,
+  temperatures, WiFi signal and the lifetime counters — no login, up from the first start
 - A JSON API and a Prometheus `/metrics` endpoint
 
 Images are published on GHCR — **`ghcr.io/mews-se/wallconnectorlog`** and its companion

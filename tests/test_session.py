@@ -3,6 +3,7 @@
 that exactly one session is derived, with the expected energy and peak power."""
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import time
@@ -56,6 +57,15 @@ try:
     metrics = urllib.request.urlopen("http://127.0.0.1:8298/metrics", timeout=5).read().decode()
     has_metrics = "wcl_sessions_total" in metrics and "wcl_lifetime_energy_wh_total" in metrics
 
+    db = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+    phase = db.execute("SELECT volt_a, amp_a, amp_n FROM sample "
+                       "WHERE contactor_closed=1 ORDER BY ts DESC LIMIT 1").fetchone()
+    wifi = db.execute("SELECT rssi, snr, internet FROM wifi "
+                      "ORDER BY ts DESC LIMIT 1").fetchone()
+    lt = db.execute("SELECT alert_count, cycles_loaded, uptime_s FROM lifetime "
+                    "ORDER BY ts DESC LIMIT 1").fetchone()
+    db.close()
+
     checks = {
         "saw all three states": set(states) >= {"idle", "connected", "charging"},
         "exactly one session": len(sessions) == 1,
@@ -65,6 +75,10 @@ try:
         "peak power > 10 kW": bool(sessions) and sessions[0]["peak_power_w"] > 10000,
         "charging time counted": bool(sessions) and sessions[0]["charge_s"] >= 5,
         "prometheus metrics served": has_metrics,
+        "phase columns stored": phase is not None and phase[0] == 230.0
+                                and phase[1] == 16.0 and phase[2] == 0.1,
+        "wifi history stored": wifi == (-72, 23, 1),
+        "lifetime extras stored": lt == (56000, 34, 46000000),
     }
     print()
     for name, passed in checks.items():

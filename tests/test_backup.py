@@ -116,6 +116,33 @@ checks["restore succeeds"] = restored.returncode == 0
 checks["restored data matches"] = (os.path.exists(DB)
                                    and rows(DB, "sample") == rows(dl, "sample"))
 
+# A database created before the phase columns must be altered in place,
+# keeping its rows. This is what upgrading a live deployment does.
+old = os.path.join(HERE, "old-schema.db")
+db = sqlite3.connect(old)
+db.execute("CREATE TABLE sample (ts INTEGER PRIMARY KEY, grid_v REAL, "
+           "grid_hz REAL, current_a REAL, power_w REAL, "
+           "vehicle_connected INTEGER, contactor_closed INTEGER, "
+           "session_s INTEGER, session_wh REAL, handle_c REAL, pcba_c REAL, "
+           "mcu_c REAL, evse_state INTEGER)")
+db.execute("INSERT INTO sample (ts, power_w) VALUES (1, 42)")
+db.commit()
+db.close()
+mig = subprocess.Popen([sys.executable, APP], env=dict(env, WC_DB=old, WC_PORT="8296"),
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(3)
+mig.terminate()
+time.sleep(1)
+db = sqlite3.connect(f"file:{old}?mode=ro", uri=True)
+cols = {r[1] for r in db.execute("PRAGMA table_info(sample)")}
+kept = db.execute("SELECT power_w FROM sample WHERE ts=1").fetchone()
+db.close()
+checks["old database migrated"] = {"volt_a", "amp_n"} <= cols
+checks["migration keeps rows"] = kept is not None and kept[0] == 42
+for suffix in ("", "-wal", "-shm", ".heartbeat"):
+    if os.path.exists(old + suffix):
+        os.remove(old + suffix)
+
 print()
 for name, passed in checks.items():
     print(f"  {'PASS' if passed else 'FAIL'}  {name}")

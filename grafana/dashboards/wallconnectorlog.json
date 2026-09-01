@@ -4,7 +4,7 @@
   "tags": ["tesla", "wall connector", "ev"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": { "from": "now-7d", "to": "now" },
   "panels": [
@@ -92,10 +92,55 @@
       ]
     },
     {
+      "id": 9,
+      "type": "state-timeline",
+      "title": "Charger state",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 4 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "rowHeight": 0.9,
+        "legend": { "showLegend": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 70, "lineWidth": 0 },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Booting", "color": "purple", "index": 0 },
+                "1": { "text": "No vehicle connected", "color": "#6e7681", "index": 1 },
+                "2": { "text": "Connected, not ready", "color": "yellow", "index": 2 },
+                "4": { "text": "Connected, ready", "color": "blue", "index": 3 },
+                "6": { "text": "Negotiating", "color": "orange", "index": 4 },
+                "7": { "text": "Starting up", "color": "light-blue", "index": 5 },
+                "8": { "text": "Charging finished", "color": "dark-green", "index": 6 },
+                "9": { "text": "Waiting for vehicle", "color": "light-yellow", "index": 7 },
+                "10": { "text": "Charging at reduced power", "color": "semi-dark-green", "index": 8 },
+                "11": { "text": "Charging", "color": "green", "index": 9 }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, evse_state AS \"state\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, evse_state AS \"state\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
       "id": 5,
       "type": "timeseries",
       "title": "Delivered power",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 7 },
       "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
       "fieldConfig": {
         "defaults": {
@@ -115,10 +160,61 @@
       ]
     },
     {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Phase voltages",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "custom": { "lineWidth": 1, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, volt_a AS \"A\", volt_b AS \"B\", volt_c AS \"C\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, volt_a AS \"A\", volt_b AS \"B\", volt_c AS \"C\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Phase currents",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "amp",
+          "custom": { "lineWidth": 1, "showPoints": "never" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "N" },
+            "properties": [{ "id": "custom.lineStyle", "value": { "dash": [4, 4], "fill": "dash" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, amp_a AS \"A\", amp_b AS \"B\", amp_c AS \"C\", amp_n AS \"N\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, amp_a AS \"A\", amp_b AS \"B\", amp_c AS \"C\", amp_n AS \"N\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
       "id": 6,
       "type": "timeseries",
       "title": "Grid voltage and frequency",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
       "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
       "fieldConfig": {
         "defaults": { "custom": { "lineWidth": 1, "showPoints": "never" } },
@@ -150,7 +246,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "Temperatures",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
       "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
       "fieldConfig": {
         "defaults": {
@@ -170,10 +266,168 @@
       ]
     },
     {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Session energy",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "custom": { "fillOpacity": 18, "lineWidth": 1, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, session_wh/1000.0 AS \"session\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, session_wh/1000.0 AS \"session\" FROM sample WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "WiFi signal",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 31 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 1, "showPoints": "never" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "rssi" },
+            "properties": [{ "id": "unit", "value": "dBm" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "snr" },
+            "properties": [
+              { "id": "unit", "value": "dB" },
+              { "id": "custom.axisPlacement", "value": "right" }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, rssi AS \"rssi\", snr AS \"snr\" FROM wifi WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, rssi AS \"rssi\", snr AS \"snr\" FROM wifi WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Charge starts",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 39 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT charge_starts AS \"starts\" FROM lifetime ORDER BY ts DESC LIMIT 1",
+          "queryText": "SELECT charge_starts AS \"starts\" FROM lifetime ORDER BY ts DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Connector cycles",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 39 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT connector_cycles AS \"cycles\" FROM lifetime ORDER BY ts DESC LIMIT 1",
+          "queryText": "SELECT connector_cycles AS \"cycles\" FROM lifetime ORDER BY ts DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Contactor cycles under load",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 39 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT cycles_loaded AS \"cycles\" FROM lifetime ORDER BY ts DESC LIMIT 1",
+          "queryText": "SELECT cycles_loaded AS \"cycles\" FROM lifetime ORDER BY ts DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Charging time",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 39 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT charging_time_s AS \"time\" FROM lifetime ORDER BY ts DESC LIMIT 1",
+          "queryText": "SELECT charging_time_s AS \"time\" FROM lifetime ORDER BY ts DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Charger uptime",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 39 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT uptime_s AS \"uptime\" FROM lifetime ORDER BY ts DESC LIMIT 1",
+          "queryText": "SELECT uptime_s AS \"uptime\" FROM lifetime ORDER BY ts DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "Alert counter",
+      "description": "Undocumented raw counter. Nobody outside Tesla knows what it counts, and large numbers are normal — shown as-is, not interpreted.",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 39 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT alert_count AS \"alerts\" FROM lifetime ORDER BY ts DESC LIMIT 1",
+          "queryText": "SELECT alert_count AS \"alerts\" FROM lifetime ORDER BY ts DESC LIMIT 1"
+        }
+      ]
+    },
+    {
       "id": 8,
       "type": "table",
       "title": "Charge sessions",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 43 },
       "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
       "fieldConfig": {
         "defaults": {},

@@ -81,7 +81,9 @@ CREATE TABLE IF NOT EXISTS sample (
     grid_v REAL, grid_hz REAL, current_a REAL, power_w REAL,
     vehicle_connected INTEGER, contactor_closed INTEGER,
     session_s INTEGER, session_wh REAL,
-    handle_c REAL, pcba_c REAL, mcu_c REAL, evse_state INTEGER
+    handle_c REAL, pcba_c REAL, mcu_c REAL, evse_state INTEGER,
+    volt_a REAL, volt_b REAL, volt_c REAL,
+    amp_a REAL, amp_b REAL, amp_c REAL, amp_n REAL
 );
 CREATE INDEX IF NOT EXISTS sample_ts ON sample(ts);
 
@@ -102,13 +104,45 @@ CREATE TABLE IF NOT EXISTS session (
 CREATE TABLE IF NOT EXISTS lifetime (
     ts INTEGER PRIMARY KEY,
     energy_wh REAL, charge_starts INTEGER, connector_cycles INTEGER,
-    charging_time_s INTEGER, contactor_cycles INTEGER, thermal_foldbacks INTEGER
+    charging_time_s INTEGER, contactor_cycles INTEGER, thermal_foldbacks INTEGER,
+    alert_count INTEGER, cycles_loaded INTEGER, uptime_s INTEGER, startup_temp REAL
+);
+
+CREATE TABLE IF NOT EXISTS wifi (
+    ts INTEGER PRIMARY KEY, rssi INTEGER, snr INTEGER,
+    connected INTEGER, internet INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS device (k TEXT PRIMARY KEY, v TEXT, ts INTEGER);
 
 CREATE TABLE IF NOT EXISTS poll_error (ts INTEGER PRIMARY KEY, detail TEXT);
 """
+
+# Databases created before these columns existed are altered in place.
+# "duplicate column name" is SQLite's way of saying the work is already done.
+MIGRATIONS = (
+    "ALTER TABLE sample ADD COLUMN volt_a REAL",
+    "ALTER TABLE sample ADD COLUMN volt_b REAL",
+    "ALTER TABLE sample ADD COLUMN volt_c REAL",
+    "ALTER TABLE sample ADD COLUMN amp_a REAL",
+    "ALTER TABLE sample ADD COLUMN amp_b REAL",
+    "ALTER TABLE sample ADD COLUMN amp_c REAL",
+    "ALTER TABLE sample ADD COLUMN amp_n REAL",
+    "ALTER TABLE lifetime ADD COLUMN alert_count INTEGER",
+    "ALTER TABLE lifetime ADD COLUMN cycles_loaded INTEGER",
+    "ALTER TABLE lifetime ADD COLUMN uptime_s INTEGER",
+    "ALTER TABLE lifetime ADD COLUMN startup_temp REAL",
+)
+
+
+def ensure_schema(db):
+    db.executescript(SCHEMA)
+    for stmt in MIGRATIONS:
+        try:
+            db.execute(stmt)
+        except sqlite3.OperationalError:
+            pass
+    db.commit()
 
 
 def connect():
@@ -160,8 +194,7 @@ class Poller(threading.Thread):
 
     def run(self):
         db = connect()
-        db.executescript(SCHEMA)
-        db.commit()
+        ensure_schema(db)
         last_meta = 0
         last_prune = 0
         last_grafana = 0
@@ -175,13 +208,21 @@ class Poller(threading.Thread):
                 power = phase_power(vitals) if charging else 0.0
 
                 db.execute(
-                    "INSERT OR REPLACE INTO sample VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT OR REPLACE INTO sample (ts, grid_v, grid_hz, "
+                    "current_a, power_w, vehicle_connected, contactor_closed, "
+                    "session_s, session_wh, handle_c, pcba_c, mcu_c, evse_state, "
+                    "volt_a, volt_b, volt_c, amp_a, amp_b, amp_c, amp_n) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (now, vitals.get("grid_v"), vitals.get("grid_hz"),
                      vitals.get("vehicle_current_a"), power,
                      int(connected), int(charging),
                      vitals.get("session_s"), vitals.get("session_energy_wh"),
                      vitals.get("handle_temp_c"), vitals.get("pcba_temp_c"),
-                     vitals.get("mcu_temp_c"), vitals.get("evse_state")),
+                     vitals.get("mcu_temp_c"), vitals.get("evse_state"),
+                     vitals.get("voltageA_v"), vitals.get("voltageB_v"),
+                     vitals.get("voltageC_v"), vitals.get("currentA_a"),
+                     vitals.get("currentB_a"), vitals.get("currentC_a"),
+                     vitals.get("currentN_a")),
                 )
                 self.update_session(db, now, vitals, connected, charging, power)
 
@@ -191,6 +232,7 @@ class Poller(threading.Thread):
                 if now - last_prune > 3600:
                     cutoff = now - RETAIN_DAYS * 86400
                     db.execute("DELETE FROM sample WHERE ts < ?", (cutoff,))
+                    db.execute("DELETE FROM wifi WHERE ts < ?", (cutoff,))
                     db.execute("DELETE FROM poll_error WHERE ts < ?", (cutoff,))
                     last_prune = now
                 db.commit()
@@ -253,19 +295,36 @@ class Poller(threading.Thread):
     def update_slow(self, db, now):
         try:
             lt = fetch("lifetime")
-            db.execute("INSERT OR REPLACE INTO lifetime VALUES (?,?,?,?,?,?,?)",
+            db.execute("INSERT OR REPLACE INTO lifetime (ts, energy_wh, "
+                       "charge_starts, connector_cycles, charging_time_s, "
+                       "contactor_cycles, thermal_foldbacks, alert_count, "
+                       "cycles_loaded, uptime_s, startup_temp) "
+                       "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                        (now, lt.get("energy_wh"), lt.get("charge_starts"),
                         lt.get("connector_cycles"), lt.get("charging_time_s"),
-                        lt.get("contactor_cycles"), lt.get("thermal_foldbacks")))
+                        lt.get("contactor_cycles"), lt.get("thermal_foldbacks"),
+                        lt.get("alert_count"), lt.get("contactor_cycles_loaded"),
+                        lt.get("uptime_s"), lt.get("avg_startup_temp")))
         except Exception:
             pass
         for path in ("version", "wifi_status"):
             try:
-                for k, v in fetch(path).items():
+                info = fetch(path)
+                for k, v in info.items():
                     if k == "wifi_ssid":
                         v = decode_ssid(v)
                     db.execute("INSERT OR REPLACE INTO device VALUES (?,?,?)",
                                (k, json.dumps(v), now))
+                if path == "wifi_status":
+                    # Keep NULL where the firmware does not report a field, so
+                    # absent is distinguishable from down.
+                    flags = [None if info.get(k) is None else int(bool(info[k]))
+                             for k in ("wifi_connected", "internet")]
+                    db.execute("INSERT OR REPLACE INTO wifi "
+                               "(ts, rssi, snr, connected, internet) "
+                               "VALUES (?,?,?,?,?)",
+                               (now, info.get("wifi_rssi"), info.get("wifi_snr"),
+                                flags[0], flags[1]))
             except Exception:
                 pass
 
@@ -468,6 +527,13 @@ def metrics_text():
              int(bool(v.get("contactor_closed")))),
             ("wcl_evse_state", "Raw EVSE state code", v.get("evse_state")),
             ("wcl_uptime_seconds", "Charger uptime", v.get("uptime_s")),
+            ("wcl_phase_a_volts", "Phase A voltage", v.get("voltageA_v")),
+            ("wcl_phase_b_volts", "Phase B voltage", v.get("voltageB_v")),
+            ("wcl_phase_c_volts", "Phase C voltage", v.get("voltageC_v")),
+            ("wcl_phase_a_amps", "Phase A current", v.get("currentA_a")),
+            ("wcl_phase_b_amps", "Phase B current", v.get("currentB_a")),
+            ("wcl_phase_c_amps", "Phase C current", v.get("currentC_a")),
+            ("wcl_neutral_amps", "Neutral current", v.get("currentN_a")),
         ]
         for name, help_text, value in gauges:
             if value is not None:
@@ -484,10 +550,26 @@ def metrics_text():
              lt[0]["charging_time_s"]),
             ("wcl_lifetime_thermal_foldbacks_total", "Lifetime thermal foldbacks",
              lt[0]["thermal_foldbacks"]),
+            ("wcl_lifetime_alerts_total", "Lifetime alert counter (undocumented, raw)",
+             lt[0]["alert_count"]),
+            ("wcl_lifetime_contactor_cycles_loaded_total",
+             "Lifetime contactor cycles under load", lt[0]["cycles_loaded"]),
         ]
         for name, help_text, value in counters:
             if value is not None:
                 add(name, help_text, "counter", value)
+
+    wf = query("SELECT * FROM wifi ORDER BY ts DESC LIMIT 1")
+    if wf:
+        wifi_gauges = [
+            ("wcl_wifi_rssi_dbm", "WiFi signal strength", wf[0]["rssi"]),
+            ("wcl_wifi_snr_db", "WiFi signal-to-noise ratio", wf[0]["snr"]),
+            ("wcl_internet_up", "1 when the charger reports internet access",
+             wf[0]["internet"]),
+        ]
+        for name, help_text, value in wifi_gauges:
+            if value is not None:
+                add(name, help_text, "gauge", value)
 
     done = query("SELECT COUNT(*) n, COALESCE(SUM(energy_wh),0) wh FROM session WHERE is_open=0")
     add("wcl_sessions_total", "Charge sessions recorded by this logger", "counter", done[0]["n"])
@@ -811,8 +893,7 @@ def main(argv):
 
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     db = connect()
-    db.executescript(SCHEMA)
-    db.commit()
+    ensure_schema(db)
     db.close()
     signal.signal(signal.SIGTERM, clear_heartbeat)
     signal.signal(signal.SIGINT, clear_heartbeat)
