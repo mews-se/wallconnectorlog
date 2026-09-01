@@ -811,23 +811,32 @@ async function load(){
  draw(await (await fetch("/api/history?hours=24")).json());
 }
 function draw(h){
- const c=document.getElementById("chart"),x=c.getContext("2d");
- const w=c.width=c.clientWidth*devicePixelRatio,ht=c.height=190*devicePixelRatio;
+ const c=document.getElementById("chart"),x=c.getContext("2d"),d=devicePixelRatio;
+ const w=c.width=c.clientWidth*d,ht=c.height=190*d;
  x.clearRect(0,0,w,ht);
  const cs=getComputedStyle(document.documentElement);
  if(!h.length){x.fillStyle=cs.getPropertyValue("--dim");
-  x.font=`${13*devicePixelRatio}px sans-serif`;
-  x.fillText("no data yet",12*devicePixelRatio,24*devicePixelRatio);return}
+  x.font=`${13*d}px sans-serif`;
+  x.fillText("no data yet",12*d,24*d);return}
  const t0=h[0].ts,t1=h[h.length-1].ts||t0+1;
  const max=Math.max(1000,...h.map(p=>p.power_w||0));
- x.strokeStyle=cs.getPropertyValue("--accent");x.lineWidth=2*devicePixelRatio;
+ const py=v=>ht-12*d-v/max*(ht-30*d);
+ // Gridlines on a 1/2/5 step, so the curve can be read without opening Grafana.
+ const base=Math.pow(10,Math.floor(Math.log10(max/4)));
+ const step=[1,2,5,10].map(m=>m*base).find(s=>max/s<=6);
+ x.strokeStyle=cs.getPropertyValue("--line");x.lineWidth=d;
+ x.fillStyle=cs.getPropertyValue("--dim");x.font=`${11*d}px sans-serif`;
+ for(let v=step;v<max;v+=step){
+  x.beginPath();x.moveTo(10*d,py(v));x.lineTo(w-10*d,py(v));x.stroke();
+  x.fillText((v/1000).toFixed(step<1000?1:0)+" kW",10*d,py(v)-3*d);
+ }
+ x.strokeStyle=cs.getPropertyValue("--accent");x.lineWidth=2*d;
  x.beginPath();
- h.forEach((p,i)=>{const px=(p.ts-t0)/(t1-t0||1)*(w-20*devicePixelRatio)+10*devicePixelRatio;
-  const py=ht-12*devicePixelRatio-((p.power_w||0)/max)*(ht-30*devicePixelRatio);
-  i?x.lineTo(px,py):x.moveTo(px,py)});
+ h.forEach((p,i)=>{const px=(p.ts-t0)/(t1-t0||1)*(w-20*d)+10*d;
+  i?x.lineTo(px,py(p.power_w||0)):x.moveTo(px,py(p.power_w||0))});
  x.stroke();
- x.fillStyle=cs.getPropertyValue("--dim");x.font=`${11*devicePixelRatio}px sans-serif`;
- x.fillText((max/1000).toFixed(1)+" kW",10*devicePixelRatio,14*devicePixelRatio);
+ x.fillStyle=cs.getPropertyValue("--dim");
+ x.fillText((max/1000).toFixed(1)+" kW",10*d,14*d);
 }
 load();setInterval(load,5000);
 </script></body></html>"""
