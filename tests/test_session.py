@@ -55,7 +55,11 @@ try:
     print(f"\nsessions derived: {len(sessions)}")
     print(json.dumps(sessions, indent=2))
 
-    samples = get(f"/api/sessions/{sessions[0]['id']}/samples") if sessions else []
+    sid = sessions[0]["id"] if sessions else 0
+    page_after = get(f"/api/sessions?before={sid + 1}&limit=1")
+    page_before = get(f"/api/sessions?before={sid}")
+    page_bad = get("/api/sessions?limit=abc&before=abc")
+    samples = get(f"/api/sessions/{sid}/samples") if sessions else []
     print(f"samples in session: {len(samples)}")
     try:
         get("/api/sessions/999/samples")
@@ -93,6 +97,8 @@ try:
                                           <= sessions[0]["ended_at"] for s in samples)
                                   and any(s["amp_a"] == 16.0 for s in samples),
         "unknown session is 404": missing_is_404,
+        "sessions page by id": page_after == sessions and page_before == []
+                               and page_bad == sessions,
     }
     print()
     for name, passed in checks.items():

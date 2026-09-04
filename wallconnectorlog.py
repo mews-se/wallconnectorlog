@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -332,6 +333,19 @@ class Poller(threading.Thread):
 poller = Poller()
 
 
+def query_params(raw_path):
+    """The query string as single values; the last of a repeated key wins."""
+    parsed = urllib.parse.parse_qs(urllib.parse.urlsplit(raw_path).query)
+    return {k: v[-1] for k, v in parsed.items()}
+
+
+def int_param(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def query(sql, args=()):
     db = connect()
     try:
@@ -618,11 +632,22 @@ class Handler(BaseHTTPRequestHandler):
                                    if GRAFANA_URL else None)
                 self.send_json(live)
             elif path == "/api/sessions":
-                self.send_json(query(
-                    "SELECT id, started_at, ended_at, energy_wh, duration_s, charge_s, "
-                    "peak_power_w, peak_handle_c, is_open, "
-                    "CASE WHEN grid_v_n>0 THEN grid_v_sum/grid_v_n END AS avg_grid_v "
-                    "FROM session ORDER BY id DESC LIMIT 200"))
+                # Newest first. `before` takes a session id, so a client walks
+                # the whole history by passing the last id it has seen.
+                q = query_params(self.path)
+                limit = max(1, min(1000, int_param(q.get("limit"), 200)))
+                before = int_param(q.get("before"), None)
+                sql = ("SELECT id, started_at, ended_at, energy_wh, duration_s, charge_s, "
+                       "peak_power_w, peak_handle_c, is_open, "
+                       "CASE WHEN grid_v_n>0 THEN grid_v_sum/grid_v_n END AS avg_grid_v "
+                       "FROM session")
+                args = []
+                if before is not None:
+                    sql += " WHERE id<?"
+                    args.append(before)
+                sql += " ORDER BY id DESC LIMIT ?"
+                args.append(limit)
+                self.send_json(query(sql, args))
             elif path.startswith("/api/sessions/") and path.endswith("/samples"):
                 # Every stored sample of one session, phase columns included.
                 # Samples are pruned after WC_RETAIN_DAYS, so an old session
@@ -638,11 +663,8 @@ class Handler(BaseHTTPRequestHandler):
                         "SELECT * FROM sample WHERE ts BETWEEN ? AND ? ORDER BY ts",
                         (row[0]["started_at"], end)))
             elif path == "/api/history":
-                hours = 24
-                if "?" in self.path:
-                    for part in self.path.split("?", 1)[1].split("&"):
-                        if part.startswith("hours="):
-                            hours = max(1, min(720, int(part[6:] or 24)))
+                hours = int_param(query_params(self.path).get("hours"), 24)
+                hours = max(1, min(720, hours))
                 since = int(time.time()) - hours * 3600
                 self.send_json(query(
                     "SELECT ts, grid_v, grid_hz, power_w, current_a, handle_c, pcba_c, mcu_c, "
