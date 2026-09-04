@@ -346,6 +346,12 @@ def int_param(value, default):
         return default
 
 
+def since_param(raw_path):
+    """Start of the window an `hours` query asks for: default 24, at most 30 days."""
+    hours = max(1, min(720, int_param(query_params(raw_path).get("hours"), 24)))
+    return int(time.time()) - hours * 3600
+
+
 def query(sql, args=()):
     db = connect()
     try:
@@ -663,12 +669,14 @@ class Handler(BaseHTTPRequestHandler):
                         "SELECT * FROM sample WHERE ts BETWEEN ? AND ? ORDER BY ts",
                         (row[0]["started_at"], end)))
             elif path == "/api/history":
-                hours = int_param(query_params(self.path).get("hours"), 24)
-                hours = max(1, min(720, hours))
-                since = int(time.time()) - hours * 3600
                 self.send_json(query(
                     "SELECT ts, grid_v, grid_hz, power_w, current_a, handle_c, pcba_c, mcu_c, "
-                    "contactor_closed FROM sample WHERE ts>=? ORDER BY ts", (since,)))
+                    "contactor_closed FROM sample WHERE ts>=? ORDER BY ts",
+                    (since_param(self.path),)))
+            elif path == "/api/wifi":
+                self.send_json(query(
+                    "SELECT ts, rssi, snr, connected, internet FROM wifi WHERE ts>=? "
+                    "ORDER BY ts", (since_param(self.path),)))
             elif path == "/api/errors":
                 self.send_json(query("SELECT * FROM poll_error ORDER BY ts DESC LIMIT 50"))
             elif path == "/api/backup":
