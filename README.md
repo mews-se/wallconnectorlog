@@ -85,7 +85,7 @@ start just the logger: `docker compose up -d wallconnectorlog`.
 | `WC_BACKUP_INTERVAL_H` | `24` | Hours between automatic backups. `0` turns them off. |
 | `WC_BACKUP_KEEP` | `7` | How many backups to keep |
 | `WC_BACKUP_DIR` | `<db folder>/backups` | Where backups are written |
-| `WC_GRAFANA_URL` | `:3399` in Docker | Where the Grafana link points. A bare port follows the host you browse from; empty hides the link. |
+| `WC_GRAFANA_URL` | `:3399` in Docker | Where the Grafana link points. A bare port follows the host you browse from; set a full URL such as `https://grafana.example.com` in `.env` when Grafana has a reverse-proxy name of its own; empty hides the link. |
 | `WC_GRAFANA_HEALTH` | `http://grafana:3000/api/health` | Checked before the link is shown |
 
 ## Backup and restore
