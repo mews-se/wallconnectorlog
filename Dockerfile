@@ -5,7 +5,9 @@ WORKDIR /app
 COPY entrypoint.sh wallconnectorlog.py ./
 RUN chmod 755 entrypoint.sh
 
-ENV WC_DB=/data/wallconnectorlog.db WC_PORT=4680
+# The Grafana link's default lives here, so the compose file only has to name
+# WC_GRAFANA_URL and .env decides whether to override it.
+ENV WC_DB=/data/wallconnectorlog.db WC_PORT=4680 WC_GRAFANA_URL=:3399
 VOLUME /data
 EXPOSE 4680
 

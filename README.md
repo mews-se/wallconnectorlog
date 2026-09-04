@@ -29,8 +29,8 @@ cloud, no vendor API.
 
 Images are published on GHCR — **`ghcr.io/mews-se/wallconnectorlog`** and its companion
 **`…/wallconnectorlog-grafana`** — and mirrored to Docker Hub under **`mewsse/`**. Same builds,
-same tags, amd64 and arm64. `latest` follows the main branch, and `docker compose pull` picks up
-new versions. To build from source instead, clone this repository and add `build: .` and
+same tags, amd64 and arm64. `latest` follows the main branch; updating is three commands, see
+below. To build from source instead, clone this repository and add `build: .` and
 `build: grafana` to the two services.
 
 ## Quick start
@@ -63,6 +63,17 @@ yourself. To check the configuration without starting anything:
 docker compose run --rm wallconnectorlog python wallconnectorlog.py check
 ```
 
+### Updating
+
+```bash
+docker compose down
+docker compose pull
+docker compose up -d
+```
+
+When a release changes `docker-compose.yml`, fetch the new one first with the `curl -O` line
+above. `.env` is yours and never gets overwritten.
+
 ### Grafana
 
 Opens straight onto the dashboard: the datasource, the dashboard, the SQLite plugin and no-login
@@ -86,7 +97,7 @@ start just the logger: `docker compose up -d wallconnectorlog`.
 | `WC_BACKUP_INTERVAL_H` | `24` | Hours between automatic backups. `0` turns them off. |
 | `WC_BACKUP_KEEP` | `7` | How many backups to keep |
 | `WC_BACKUP_DIR` | `<db folder>/backups` | Where backups are written |
-| `WC_GRAFANA_URL` | `:3399` in Docker | Where the Grafana link points. A bare port follows the host you browse from; set a full URL such as `https://grafana.example.com` in `.env` when Grafana has a reverse-proxy name of its own; empty hides the link. |
+| `WC_GRAFANA_URL` | `:3399` in the image | Where the Grafana link points. The default follows the host you browse from; set a full URL such as `https://grafana.example.com` in `.env` when Grafana has a reverse-proxy name of its own; empty hides the link. |
 | `WC_GRAFANA_HEALTH` | `http://grafana:3000/api/health` | Checked before the link is shown |
 
 ## Backup and restore

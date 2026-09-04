@@ -9,9 +9,9 @@ services:
       - WC_INTERVAL_CONNECTED=15
       - WC_INTERVAL_IDLE=60
       - WC_RETAIN_DAYS=90
-      # Where the Grafana link points: port 3399 on the host you browse from,
-      # unless .env names a full URL for a Grafana behind a reverse proxy.
-      - WC_GRAFANA_URL=${WC_GRAFANA_URL:-:3399}
+      # Set WC_GRAFANA_URL in .env only when Grafana has a reverse-proxy name of
+      # its own. Otherwise the link points at port 3399 on the host you browse from.
+      - WC_GRAFANA_URL
     volumes:
       - ./data:/data
     ports:
