@@ -2,6 +2,9 @@ services:
   wallconnectorlog:
     image: ghcr.io/mews-se/wallconnectorlog:latest
     container_name: wallconnectorlog
+    # Everything in .env reaches the logger, so a setting like WC_GRAFANA_URL
+    # goes there. The lines below are the defaults worth seeing.
+    env_file: .env
     environment:
       - WC_HOST=${WC_HOST:?set WC_HOST to your Wall Connector's address}
       - TZ=${TZ:-UTC}
@@ -9,9 +12,6 @@ services:
       - WC_INTERVAL_CONNECTED=15
       - WC_INTERVAL_IDLE=60
       - WC_RETAIN_DAYS=90
-      # Set WC_GRAFANA_URL in .env only when Grafana has a reverse-proxy name of
-      # its own. Otherwise the link points at port 3399 on the host you browse from.
-      - WC_GRAFANA_URL
     volumes:
       - ./data:/data
     ports:

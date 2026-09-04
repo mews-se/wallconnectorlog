@@ -66,13 +66,13 @@ docker compose run --rm wallconnectorlog python wallconnectorlog.py check
 ### Updating
 
 ```bash
-docker compose down
 docker compose pull
 docker compose up -d
 ```
 
-When a release changes `docker-compose.yml`, fetch the new one first with the `curl -O` line
-above. `.env` is yours and never gets overwritten.
+`up -d` recreates only the containers whose image changed. When a release changes
+`docker-compose.yml`, fetch the new one first with the `curl -O` line above; `.env` is yours and
+never gets overwritten.
 
 ### Grafana
 
@@ -84,6 +84,8 @@ from the browser (any `GF_*` setting can be overridden the same way). To run wit
 start just the logger: `docker compose up -d wallconnectorlog`.
 
 ## Configuration
+
+Everything in `.env` reaches the logger, so any of these can be set there.
 
 | Variable | Default | Meaning |
 |---|---|---|
