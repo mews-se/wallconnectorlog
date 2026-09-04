@@ -117,6 +117,7 @@ docker compose start wallconnectorlog
 | `/api/sessions/<id>/samples` | Every stored sample of one session, per-phase voltages and currents included. Empty once the samples have aged out of `WC_RETAIN_DAYS`; 404 for an unknown id |
 | `/api/history?hours=24` | Raw samples for a period |
 | `/api/wifi?hours=24` | Wi-Fi signal history for a period: RSSI, SNR, connected and internet flags, one row per slow poll |
+| `/api/lifetime?days=30` | The charger's lifetime counters, the last reading of each UTC day, at most a year back |
 | `/api/errors` | Recent failed polls |
 | `/metrics` | Prometheus exposition |
 | `/api/backup` | Downloads a consistent snapshot of the database |

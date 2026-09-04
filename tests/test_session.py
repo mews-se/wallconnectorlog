@@ -61,6 +61,7 @@ try:
     page_bad = get("/api/sessions?limit=abc&before=abc")
     samples = get(f"/api/sessions/{sid}/samples") if sessions else []
     wifi_api = get("/api/wifi?hours=1")
+    lifetime_api = get("/api/lifetime?days=1")
     print(f"samples in session: {len(samples)}")
     try:
         get("/api/sessions/999/samples")
@@ -102,6 +103,9 @@ try:
                                and page_bad == sessions,
         "wifi history served": bool(wifi_api) and wifi_api[-1]["rssi"] == -72
                                and wifi_api[-1]["snr"] == 23 and wifi_api[-1]["internet"] == 1,
+        "lifetime history served": len(lifetime_api) == 1
+                                   and lifetime_api[0]["energy_wh"] == 2734298
+                                   and lifetime_api[0]["uptime_s"] == 46000000,
     }
     print()
     for name, passed in checks.items():

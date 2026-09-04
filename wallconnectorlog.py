@@ -677,6 +677,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(query(
                     "SELECT ts, rssi, snr, connected, internet FROM wifi WHERE ts>=? "
                     "ORDER BY ts", (since_param(self.path),)))
+            elif path == "/api/lifetime":
+                # The counters are monotonic, so the last reading of each UTC
+                # day tells the whole story and keeps a year's answer small.
+                days = max(1, min(366, int_param(query_params(self.path).get("days"), 30)))
+                since = int(time.time()) - days * 86400
+                self.send_json(query(
+                    "SELECT * FROM lifetime WHERE ts IN (SELECT MAX(ts) FROM lifetime "
+                    "WHERE ts>=? GROUP BY ts/86400) ORDER BY ts", (since,)))
             elif path == "/api/errors":
                 self.send_json(query("SELECT * FROM poll_error ORDER BY ts DESC LIMIT 50"))
             elif path == "/api/backup":
