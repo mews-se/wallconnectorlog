@@ -25,6 +25,7 @@ cloud, no vendor API.
 - Grafana with a ready-made dashboard — power, per-phase voltage and current, charger state,
   temperatures, WiFi signal and the lifetime counters — no login, up from the first start
 - A JSON API and a Prometheus `/metrics` endpoint
+- An iPhone app that reads all of it: [WallConnectorLog for iOS](https://apps.apple.com/app/wallconnectorlog/id6807546205), see below
 
 Images are published on GHCR — **`ghcr.io/mews-se/wallconnectorlog`** and its companion
 **`…/wallconnectorlog-grafana`** — and mirrored to Docker Hub under **`mewsse/`**. Same builds,
@@ -123,6 +124,15 @@ docker compose start wallconnectorlog
 | `/api/backup` | Downloads a consistent snapshot of the database |
 | `/api/backups` | Lists stored backups |
 | `/healthz` | 200 while the poll loop is alive, 503 if it has stalled. An unreachable charger is reported in the body, not treated as unhealthy. |
+
+## The iPhone app
+
+[WallConnectorLog for iOS](https://apps.apple.com/app/wallconnectorlog/id6807546205) is the
+native companion to this server: live status, the session log with per-session curves and the
+lifetime counters on the phone, reading the API above. It needs nothing more than the server's
+address, on your own network or through a reverse proxy with a certificate. Its source lives in
+[mews-se/wallconnectorlog-ios](https://github.com/mews-se/wallconnectorlog-ios) and its site at
+[mews-se.github.io/wallconnectorlog-site](https://mews-se.github.io/wallconnectorlog-site/).
 
 ## What the charger reports, and what it means
 
