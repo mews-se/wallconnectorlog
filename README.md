@@ -114,6 +114,7 @@ docker compose start wallconnectorlog
 | `/` | The web page |
 | `/api/live` | Latest reading, lifetime counters, device info, open session |
 | `/api/sessions` | The 200 most recent sessions |
+| `/api/sessions/<id>/samples` | Every stored sample of one session, per-phase voltages and currents included. Empty once the samples have aged out of `WC_RETAIN_DAYS`; 404 for an unknown id |
 | `/api/history?hours=24` | Raw samples for a period |
 | `/api/errors` | Recent failed polls |
 | `/metrics` | Prometheus exposition |

@@ -7,6 +7,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -54,6 +55,14 @@ try:
     print(f"\nsessions derived: {len(sessions)}")
     print(json.dumps(sessions, indent=2))
 
+    samples = get(f"/api/sessions/{sessions[0]['id']}/samples") if sessions else []
+    print(f"samples in session: {len(samples)}")
+    try:
+        get("/api/sessions/999/samples")
+        missing_is_404 = False
+    except urllib.error.HTTPError as e:
+        missing_is_404 = e.code == 404
+
     metrics = urllib.request.urlopen("http://127.0.0.1:8298/metrics", timeout=5).read().decode()
     has_metrics = "wcl_sessions_total" in metrics and "wcl_lifetime_energy_wh_total" in metrics
 
@@ -79,6 +88,11 @@ try:
                                 and phase[1] == 16.0 and phase[2] == 0.1,
         "wifi history stored": wifi == (-72, 23, 1),
         "lifetime extras stored": lt == (56000, 34, 46000000),
+        "session samples served": len(samples) >= 10
+                                  and all(sessions[0]["started_at"] <= s["ts"]
+                                          <= sessions[0]["ended_at"] for s in samples)
+                                  and any(s["amp_a"] == 16.0 for s in samples),
+        "unknown session is 404": missing_is_404,
     }
     print()
     for name, passed in checks.items():

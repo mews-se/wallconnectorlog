@@ -623,6 +623,20 @@ class Handler(BaseHTTPRequestHandler):
                     "peak_power_w, peak_handle_c, is_open, "
                     "CASE WHEN grid_v_n>0 THEN grid_v_sum/grid_v_n END AS avg_grid_v "
                     "FROM session ORDER BY id DESC LIMIT 200"))
+            elif path.startswith("/api/sessions/") and path.endswith("/samples"):
+                # Every stored sample of one session, phase columns included.
+                # Samples are pruned after WC_RETAIN_DAYS, so an old session
+                # answers with an empty list rather than an error.
+                sid = path[len("/api/sessions/"):-len("/samples")]
+                row = (query("SELECT started_at, ended_at FROM session WHERE id=?",
+                             (int(sid),)) if sid.isdigit() else None)
+                if not row:
+                    self.send_json({"error": "not found"}, 404)
+                else:
+                    end = row[0]["ended_at"] or int(time.time())
+                    self.send_json(query(
+                        "SELECT * FROM sample WHERE ts BETWEEN ? AND ? ORDER BY ts",
+                        (row[0]["started_at"], end)))
             elif path == "/api/history":
                 hours = 24
                 if "?" in self.path:
