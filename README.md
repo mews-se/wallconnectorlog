@@ -145,7 +145,7 @@ native companion to this server: live status, the session log with per-session c
 lifetime counters on the phone, reading the API above. It needs nothing more than the server's
 address, on your own network or through a reverse proxy with a certificate. Its source lives in
 [mews-se/wallconnectorlog-ios](https://github.com/mews-se/wallconnectorlog-ios) and its site at
-[wcl.martinstockzell.se](https://wcl.martinstockzell.se/).
+[wclog.martinstockzell.se](https://wclog.martinstockzell.se/).
 
 ## What the charger reports, and what it means
 
