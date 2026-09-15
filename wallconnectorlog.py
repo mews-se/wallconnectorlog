@@ -143,6 +143,12 @@ def ensure_schema(db):
             db.execute(stmt)
         except sqlite3.OperationalError:
             pass
+    # Samples stored before the pressed button was told apart from a
+    # temperature, and the session peaks they inflated.
+    db.execute("UPDATE session SET peak_handle_c=(SELECT MAX(handle_c) FROM sample "
+               "WHERE ts BETWEEN session.started_at AND COALESCE(session.ended_at, ?) "
+               "AND handle_c < 255) WHERE peak_handle_c >= 255", (int(time.time()),))
+    db.execute("UPDATE sample SET handle_c=NULL WHERE handle_c >= 255")
     db.commit()
 
 
@@ -203,6 +209,10 @@ class Poller(threading.Thread):
             interval = INTERVAL_IDLE
             try:
                 vitals = fetch("vitals")
+                # 255 is what the handle thermistor reads while the button on
+                # the plug is pressed (they share a wire pair), not a temperature.
+                if (vitals.get("handle_temp_c") or 0) >= 255:
+                    vitals["handle_temp_c"] = None
                 now = int(time.time())
                 charging = bool(vitals.get("contactor_closed"))
                 connected = bool(vitals.get("vehicle_connected"))

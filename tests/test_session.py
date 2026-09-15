@@ -79,6 +79,30 @@ try:
                       "ORDER BY ts DESC LIMIT 1").fetchone()
     lt = db.execute("SELECT alert_count, cycles_loaded, uptime_s FROM lifetime "
                     "ORDER BY ts DESC LIMIT 1").fetchone()
+    handle = db.execute("SELECT MAX(handle_c), SUM(handle_c IS NULL), SUM(handle_c >= 255) "
+                        "FROM sample").fetchone()
+    db.close()
+
+    # A database from before the button was recognised: a session whose peak
+    # came from the button, plus the samples behind it. The logger repairs it
+    # when it starts.
+    mon.terminate()
+    mon.wait(timeout=10)
+    old_start = int(t0) - 1000
+    db = sqlite3.connect(DB)
+    db.execute("INSERT INTO session (started_at, ended_at, peak_handle_c, is_open) "
+               "VALUES (?, ?, 255, 0)", (old_start, old_start + 100))
+    old_id = db.execute("SELECT MAX(id) FROM session").fetchone()[0]
+    db.executemany("INSERT INTO sample (ts, handle_c) VALUES (?, ?)",
+                   [(old_start + 10, 20.0), (old_start + 50, 33.0), (old_start + 90, 255.0)])
+    db.commit()
+    db.close()
+    mon = subprocess.Popen([sys.executable, APP], env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(3)
+    db = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+    repaired = db.execute("SELECT peak_handle_c FROM session WHERE id=?", (old_id,)).fetchone()[0]
+    cleared = db.execute("SELECT handle_c FROM sample WHERE ts=?", (old_start + 90,)).fetchone()[0]
     db.close()
 
     checks = {
@@ -106,6 +130,11 @@ try:
         "lifetime history served": len(lifetime_api) == 1
                                    and lifetime_api[0]["energy_wh"] == 2734298
                                    and lifetime_api[0]["uptime_s"] == 46000000,
+        "button press stored as no reading": handle[0] == 29.0 and handle[1] >= 1
+                                             and handle[2] == 0,
+        "peak handle ignores the button": bool(sessions) and sessions[0]["peak_handle_c"] == 29.0,
+        "old button peak repaired": repaired == 33.0,
+        "old button sample cleared": cleared is None,
     }
     print()
     for name, passed in checks.items():

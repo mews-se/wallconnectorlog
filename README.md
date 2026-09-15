@@ -165,6 +165,10 @@ Two firmware differences are handled: older units report a single `relay_coil_v`
 ones report `relay_k1_v` and `relay_k2_v`, and `wifi_ssid` arrives base64-encoded and is decoded
 before being stored.
 
+One more quirk: while the button on the plug is pressed the handle thermistor reads 255 °C,
+because the button shares its wires. That value is stored as no reading, so a session's peak
+handle temperature is not set by the button that ended it.
+
 ## How sessions are derived
 
 `vehicle_connected` going true opens a session; going false closes it. While it is open, the

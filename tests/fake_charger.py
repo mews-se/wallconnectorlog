@@ -3,7 +3,7 @@
 without hardware.
 
 Timeline from start: idle, plugged in, charging with rising energy, charging
-finished but still plugged, then unplugged.
+stopped with the button on the plug and still plugged, then unplugged.
 """
 import json
 import time
@@ -25,6 +25,8 @@ def vitals():
     else:
         wh = PEAK_WH
     amps = 16.0 if charging else 0.0
+    # The handle thermistor reads 255 while the button is held.
+    pressed = CHARGE_END <= t < CHARGE_END + 2
     return {
         "contactor_closed": charging,
         "vehicle_connected": connected,
@@ -37,7 +39,7 @@ def vitals():
         "voltageA_v": 230.0 if charging else 2.1,
         "voltageB_v": 230.0 if charging else 0.0,
         "voltageC_v": 230.0 if charging else 2.2,
-        "handle_temp_c": 17 + (12 if charging else 0),
+        "handle_temp_c": 255 if pressed else 17 + (12 if charging else 0),
         "pcba_temp_c": 21.0, "mcu_temp_c": 29.0,
         "evse_state": 4 if charging else 1,
     }
