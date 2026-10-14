@@ -177,8 +177,8 @@ With `WC_PRICE_AREA` set, the logger fetches the day-ahead price for every quart
 [Elpriset just nu.se](https://www.elprisetjustnu.se), which publishes them for the four Swedish
 areas for free. Each session's energy is split by the quarter hour it was drawn in and priced at
 that quarter's price, so the time of day a car charges shows in what it cost. The cost is stored
-with the area it was priced in, appears on the web page and in `/api/sessions`, and is updated
-every five minutes while a session is open.
+with the area it was priced in, appears on the web page, in Grafana and in `/api/sessions`, and
+is updated every five minutes while a session is open.
 
 It is the spot price alone, excluding VAT: network fees, energy tax and the supplier's margin
 come on top. Sessions recorded before the setting was turned on are priced at the next start,

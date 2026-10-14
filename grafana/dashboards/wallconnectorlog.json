@@ -441,6 +441,10 @@
             "properties": [{ "id": "unit", "value": "kwatth" }, { "id": "decimals", "value": 2 }]
           },
           {
+            "matcher": { "id": "byName", "options": "spot SEK" },
+            "properties": [{ "id": "decimals", "value": 2 }]
+          },
+          {
             "matcher": { "id": "byName", "options": "peak kW" },
             "properties": [{ "id": "unit", "value": "kwatt" }, { "id": "decimals", "value": 2 }]
           },
@@ -455,8 +459,54 @@
           "refId": "A",
           "queryType": "table",
           "timeColumns": [],
-          "rawQueryText": "SELECT started_at*1000 AS \"started\", duration_s AS \"duration\", energy_wh/1000.0 AS \"kWh\", peak_power_w/1000.0 AS \"peak kW\", peak_handle_c AS \"peak handle C\", CASE WHEN grid_v_n>0 THEN ROUND(grid_v_sum/grid_v_n,1) END AS \"avg grid V\" FROM session ORDER BY started_at DESC LIMIT 500",
-          "queryText": "SELECT started_at*1000 AS \"started\", duration_s AS \"duration\", energy_wh/1000.0 AS \"kWh\", peak_power_w/1000.0 AS \"peak kW\", peak_handle_c AS \"peak handle C\", CASE WHEN grid_v_n>0 THEN ROUND(grid_v_sum/grid_v_n,1) END AS \"avg grid V\" FROM session ORDER BY started_at DESC LIMIT 500"
+          "rawQueryText": "SELECT started_at*1000 AS \"started\", duration_s AS \"duration\", energy_wh/1000.0 AS \"kWh\", spot_sek AS \"spot SEK\", spot_area AS \"area\", peak_power_w/1000.0 AS \"peak kW\", peak_handle_c AS \"peak handle C\", CASE WHEN grid_v_n>0 THEN ROUND(grid_v_sum/grid_v_n,1) END AS \"avg grid V\" FROM session ORDER BY started_at DESC LIMIT 500",
+          "queryText": "SELECT started_at*1000 AS \"started\", duration_s AS \"duration\", energy_wh/1000.0 AS \"kWh\", spot_sek AS \"spot SEK\", spot_area AS \"area\", peak_power_w/1000.0 AS \"peak kW\", peak_handle_c AS \"peak handle C\", CASE WHEN grid_v_n>0 THEN ROUND(grid_v_sum/grid_v_n,1) END AS \"avg grid V\" FROM session ORDER BY started_at DESC LIMIT 500"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Spot price",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 53 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: SEK/kWh",
+          "decimals": 2,
+          "displayName": "${__field.labels.area}",
+          "custom": { "fillOpacity": 10, "lineWidth": 1, "lineInterpolation": "stepAfter", "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "time series",
+          "timeColumns": ["time"],
+          "rawQueryText": "SELECT ts AS time, sek_per_kwh AS \"spot\", area FROM price WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts",
+          "queryText": "SELECT ts AS time, sek_per_kwh AS \"spot\", area FROM price WHERE ts BETWEEN $__from/1000 AND $__to/1000 ORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "barchart",
+      "title": "Spot cost per month",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 53 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "wcl-sqlite" },
+      "fieldConfig": {
+        "defaults": { "unit": "suffix: SEK", "decimals": 0 },
+        "overrides": []
+      },
+      "options": { "xField": "month", "showValue": "always" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "table",
+          "timeColumns": [],
+          "rawQueryText": "SELECT strftime('%Y-%m', started_at, 'unixepoch', 'localtime') AS month, SUM(spot_sek) AS \"cost\" FROM session WHERE spot_sek IS NOT NULL GROUP BY month ORDER BY month",
+          "queryText": "SELECT strftime('%Y-%m', started_at, 'unixepoch', 'localtime') AS month, SUM(spot_sek) AS \"cost\" FROM session WHERE spot_sek IS NOT NULL GROUP BY month ORDER BY month"
         }
       ]
     }
