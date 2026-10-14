@@ -944,7 +944,7 @@ border:1px solid var(--line);border-radius:8px;padding:6px 12px;white-space:nowr
 <th>Peak power</th><th>Peak handle</th><th>Avg grid</th></tr></thead><tbody></tbody></table></div>
 <div class="sub credit" id="credit"></div>
 </div><script>
-const f=(n,d=1)=>n==null?"–":Number(n).toFixed(d);
+const f=(n,d=1)=>n==null||isNaN(n)?"–":Number(n).toFixed(d);
 const dur=s=>{if(s==null)return"–";s=Math.round(s);const h=Math.floor(s/3600),
 m=Math.floor(s%3600/60);return h?`${h} h ${m} min`:`${m} min`};
 const dt=t=>t?new Date(t*1000).toLocaleString(undefined,{dateStyle:"short",timeStyle:"short"}):"–";
