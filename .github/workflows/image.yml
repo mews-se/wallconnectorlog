@@ -23,6 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # A release tag must match the version the page shows, or the images
+      # would carry the wrong number.
+      - name: Check the version against the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          grep -qx "VERSION = \"${GITHUB_REF_NAME#v}\"" wallconnectorlog.py || {
+            echo "::error::$(grep '^VERSION' wallconnectorlog.py) does not match $GITHUB_REF_NAME"
+            exit 1
+          }
+
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
 
