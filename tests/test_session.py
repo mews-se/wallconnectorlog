@@ -19,7 +19,8 @@ for suffix in ("", "-wal", "-shm"):
         os.remove(DB + suffix)
 
 env = dict(os.environ, WC_HOST="127.0.0.1:8250", WC_DB=DB, WC_PORT="8298",
-           WC_INTERVAL_IDLE="1", WC_INTERVAL_CONNECTED="1", WC_INTERVAL_CHARGING="1")
+           WC_INTERVAL_IDLE="1", WC_INTERVAL_CONNECTED="1", WC_INTERVAL_CHARGING="1",
+           WC_PRICE_AREA="se3", WC_PRICE_URL="http://127.0.0.1:8250/api/v1/prices")
 
 fake = subprocess.Popen([sys.executable, os.path.join(HERE, "fake_charger.py")],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -60,6 +61,7 @@ try:
     page_before = get(f"/api/sessions?before={sid}")
     page_bad = get("/api/sessions?limit=abc&before=abc")
     samples = get(f"/api/sessions/{sid}/samples") if sessions else []
+    spot_now = get("/api/live").get("spot")
     wifi_api = get("/api/wifi?hours=1")
     lifetime_api = get("/api/lifetime?days=1")
     print(f"samples in session: {len(samples)}")
@@ -83,27 +85,33 @@ try:
                         "FROM sample").fetchone()
     db.close()
 
-    # A database from before the button was recognised: a session whose peak
-    # came from the button, plus the samples behind it. The logger repairs it
-    # when it starts.
+    # A database from before the button was recognised and before sessions
+    # were priced: a session whose peak came from the button, plus the samples
+    # behind it. The logger repairs the peak and prices the session when it starts.
     mon.terminate()
     mon.wait(timeout=10)
     old_start = int(t0) - 1000
     db = sqlite3.connect(DB)
-    db.execute("INSERT INTO session (started_at, ended_at, peak_handle_c, is_open) "
-               "VALUES (?, ?, 255, 0)", (old_start, old_start + 100))
+    db.execute("INSERT INTO session (started_at, ended_at, energy_wh, peak_handle_c, is_open) "
+               "VALUES (?, ?, 3000, 255, 0)", (old_start, old_start + 100))
     old_id = db.execute("SELECT MAX(id) FROM session").fetchone()[0]
-    db.executemany("INSERT INTO sample (ts, handle_c) VALUES (?, ?)",
-                   [(old_start + 10, 20.0), (old_start + 50, 33.0), (old_start + 90, 255.0)])
+    db.executemany("INSERT INTO sample (ts, handle_c, session_wh) VALUES (?, ?, ?)",
+                   [(old_start, None, 0.0), (old_start + 10, 20.0, 1000.0),
+                    (old_start + 50, 33.0, 2000.0), (old_start + 90, 255.0, 3000.0)])
     db.commit()
     db.close()
     mon = subprocess.Popen([sys.executable, APP], env=env,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(3)
     db = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
-    repaired = db.execute("SELECT peak_handle_c FROM session WHERE id=?", (old_id,)).fetchone()[0]
+    repaired, old_spot, old_area = db.execute(
+        "SELECT peak_handle_c, spot_sek, spot_area FROM session WHERE id=?", (old_id,)).fetchone()
     cleared = db.execute("SELECT handle_c FROM sample WHERE ts=?", (old_start + 90,)).fetchone()[0]
     db.close()
+
+    # The stand-in charges a flat 1.25 SEK/kWh around the clock.
+    spot = sessions[0]["spot_sek"] if sessions else None
+    expected = sessions[0]["energy_wh"] / 1000 * 1.25 if sessions else None
 
     checks = {
         "saw all three states": set(states) >= {"idle", "connected", "charging"},
@@ -135,6 +143,11 @@ try:
         "peak handle ignores the button": bool(sessions) and sessions[0]["peak_handle_c"] == 29.0,
         "old button peak repaired": repaired == 33.0,
         "old button sample cleared": cleared is None,
+        "session priced at the spot price": spot is not None and abs(spot - expected) < 0.01
+                                            and sessions[0]["spot_area"] == "SE3",
+        "current spot price served": spot_now == {"area": "SE3", "sek_per_kwh": 1.25},
+        "older session priced at start": old_spot is not None and abs(old_spot - 3.75) < 0.01
+                                         and old_area == "SE3",
     }
     print()
     for name, passed in checks.items():

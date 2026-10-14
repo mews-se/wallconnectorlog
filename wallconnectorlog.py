@@ -18,6 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # Tesla documents none of this. The mapping below is the intersection of the Home
@@ -68,6 +69,14 @@ INTERVAL_IDLE = int(os.environ.get("WC_INTERVAL_IDLE", "60"))
 GRAFANA_URL = os.environ.get("WC_GRAFANA_URL", "")
 GRAFANA_HEALTH = os.environ.get("WC_GRAFANA_HEALTH", "http://grafana:3000/api/health")
 
+# With a Swedish price area set, every session is priced at the quarter-hour
+# spot price from elprisetjustnu.se. Left empty, nothing is fetched.
+PRICE_AREA = os.environ.get("WC_PRICE_AREA", "").strip().upper()
+if PRICE_AREA and PRICE_AREA not in ("SE1", "SE2", "SE3", "SE4"):
+    print(f"WC_PRICE_AREA={PRICE_AREA} is not SE1 to SE4, spot prices stay off", flush=True)
+    PRICE_AREA = ""
+PRICE_URL = os.environ.get("WC_PRICE_URL", "https://www.elprisetjustnu.se/api/v1/prices")
+
 # The logo, small enough to inline so the single file stays self-contained and
 # works from any directory. Full-size artwork lives in assets/.
 ICON = "data:image/png;base64,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"  # noqa: E501
@@ -99,7 +108,9 @@ CREATE TABLE IF NOT EXISTS session (
     peak_handle_c REAL,
     grid_v_sum REAL DEFAULT 0,
     grid_v_n INTEGER DEFAULT 0,
-    is_open INTEGER DEFAULT 1
+    is_open INTEGER DEFAULT 1,
+    spot_sek REAL,
+    spot_area TEXT
 );
 
 CREATE TABLE IF NOT EXISTS lifetime (
@@ -117,6 +128,11 @@ CREATE TABLE IF NOT EXISTS wifi (
 CREATE TABLE IF NOT EXISTS device (k TEXT PRIMARY KEY, v TEXT, ts INTEGER);
 
 CREATE TABLE IF NOT EXISTS poll_error (ts INTEGER PRIMARY KEY, detail TEXT);
+
+CREATE TABLE IF NOT EXISTS price (
+    area TEXT, ts INTEGER, sek_per_kwh REAL,
+    PRIMARY KEY (area, ts)
+);
 """
 
 # Databases created before these columns existed are altered in place.
@@ -133,6 +149,8 @@ MIGRATIONS = (
     "ALTER TABLE lifetime ADD COLUMN cycles_loaded INTEGER",
     "ALTER TABLE lifetime ADD COLUMN uptime_s INTEGER",
     "ALTER TABLE lifetime ADD COLUMN startup_temp REAL",
+    "ALTER TABLE session ADD COLUMN spot_sek REAL",
+    "ALTER TABLE session ADD COLUMN spot_area TEXT",
 )
 
 
@@ -235,7 +253,7 @@ class Poller(threading.Thread):
                      vitals.get("currentB_a"), vitals.get("currentC_a"),
                      vitals.get("currentN_a")),
                 )
-                self.update_session(db, now, vitals, connected, charging, power)
+                closed = self.update_session(db, now, vitals, connected, charging, power)
 
                 if now - last_meta > 300:
                     self.update_slow(db, now)
@@ -247,6 +265,8 @@ class Poller(threading.Thread):
                     db.execute("DELETE FROM poll_error WHERE ts < ?", (cutoff,))
                     last_prune = now
                 db.commit()
+                if closed:
+                    pricer.wake.set()
 
                 with self.lock:
                     self.latest = {"ts": now, "vitals": vitals, "power_w": power, "ok": True}
@@ -294,7 +314,11 @@ class Poller(threading.Thread):
                  vitals.get("grid_v") or 0, row["id"]),
             )
         elif row is not None:
-            db.execute("UPDATE session SET is_open=0, ended_at=? WHERE id=?", (now, row["id"]))
+            # The pricer works the cost out again for the complete session.
+            db.execute("UPDATE session SET is_open=0, ended_at=?, spot_sek=NULL, spot_area=NULL "
+                       "WHERE id=?", (now, row["id"]))
+            return True
+        return False
 
     def check_grafana(self):
         try:
@@ -463,6 +487,113 @@ class Backups(threading.Thread):
                 print(f"backup written: {auto_backup()}", flush=True)
             except Exception as e:
                 print(f"backup failed: {e}", flush=True)
+
+
+def price_request(day):
+    # The price API turns away Python's default user agent.
+    return urllib.request.Request(
+        f"{PRICE_URL}/{day}_{PRICE_AREA}.json",
+        headers={"User-Agent": "WallConnectorLog (+https://github.com/mews-se/wallconnectorlog)"})
+
+
+def fetch_prices(db, day):
+    """Store one day of quarter-hour prices. A day not yet published stores nothing."""
+    try:
+        with urllib.request.urlopen(price_request(day), timeout=10) as r:
+            rows = json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return
+        raise
+    db.executemany("INSERT OR REPLACE INTO price VALUES (?,?,?)",
+                   [(PRICE_AREA, int(datetime.fromisoformat(p["time_start"]).timestamp()),
+                     p["SEK_per_kWh"]) for p in rows])
+    db.commit()
+
+
+def quarter_prices(db, first, last):
+    """Prices for every quarter hour from first to last, or None while any is missing."""
+    first, last = first - first % 900, last - last % 900
+
+    def stored():
+        return {r[0]: r[1] for r in db.execute(
+            "SELECT ts, sek_per_kwh FROM price WHERE area=? AND ts BETWEEN ? AND ?",
+            (PRICE_AREA, first, last))}
+
+    prices = stored()
+    tried = set()
+    for q in range(first, last + 1, 900):
+        # A file covers a Swedish calendar day, which starts an hour or two
+        # before the UTC one.
+        for ahead in (7200, 0):
+            day = time.strftime("%Y/%m-%d", time.gmtime(q + ahead))
+            if q in prices or day in tried:
+                continue
+            tried.add(day)
+            fetch_prices(db, day)
+            prices = stored()
+        if q not in prices:
+            return None
+    return prices
+
+
+def spot_cost(db, start, end):
+    """The energy drawn between start and end, each step priced at its quarter hour."""
+    steps, prev = [], 0.0
+    for ts, wh in db.execute("SELECT ts, session_wh FROM sample WHERE ts BETWEEN ? AND ? "
+                             "AND session_wh IS NOT NULL ORDER BY ts", (start, end)):
+        if wh > prev:
+            steps.append((ts, wh - prev))
+        prev = wh
+    if not steps:
+        return 0.0
+    prices = quarter_prices(db, steps[0][0], steps[-1][0])
+    if prices is None:
+        return None
+    return sum(wh / 1000 * prices[ts - ts % 900] for ts, wh in steps)
+
+
+def price_sessions(db):
+    now = int(time.time())
+    quarter_prices(db, now, now)
+    # A session whose first samples have aged out can no longer be priced.
+    oldest = db.execute("SELECT MIN(ts) FROM sample").fetchone()[0] or now
+    todo = db.execute("SELECT id, started_at, ended_at, is_open FROM session "
+                      "WHERE (is_open=1 OR spot_sek IS NULL) AND started_at>=?",
+                      (oldest,)).fetchall()
+    for s in todo:
+        cost = spot_cost(db, s["started_at"], s["ended_at"] or now)
+        if cost is not None:
+            # One that closed in the meantime is left for the next round.
+            db.execute("UPDATE session SET spot_sek=?, spot_area=? WHERE id=? AND is_open=?",
+                       (cost, PRICE_AREA, s["id"], s["is_open"]))
+            db.commit()
+
+
+class Pricer(threading.Thread):
+    daemon = True
+
+    def __init__(self):
+        super().__init__()
+        self.wake = threading.Event()
+
+    def run(self):
+        db = connect()
+        failed = None
+        while True:
+            try:
+                price_sessions(db)
+                failed = None
+            except Exception as e:
+                if str(e) != failed:
+                    print(f"spot prices unavailable: {e}", flush=True)
+                failed = str(e)
+            # A session that just closed wakes this early, so its cost shows at once.
+            self.wake.wait(300)
+            self.wake.clear()
+
+
+pricer = Pricer()
 
 
 def verify_db(path):
@@ -646,6 +777,14 @@ class Handler(BaseHTTPRequestHandler):
                 live["relay_v"] = relay_volts(live.get("vitals") or {})
                 live["grafana"] = ({"url": GRAFANA_URL, "up": poller.grafana_up}
                                    if GRAFANA_URL else None)
+                if PRICE_AREA:
+                    q = int(time.time()) // 900 * 900
+                    now_price = query("SELECT sek_per_kwh FROM price WHERE area=? AND ts=?",
+                                      (PRICE_AREA, q))
+                    live["spot"] = {"area": PRICE_AREA, "sek_per_kwh":
+                                    now_price[0]["sek_per_kwh"] if now_price else None}
+                else:
+                    live["spot"] = None
                 self.send_json(live)
             elif path == "/api/sessions":
                 # Newest first. `before` takes a session id, so a client walks
@@ -654,7 +793,7 @@ class Handler(BaseHTTPRequestHandler):
                 limit = max(1, min(1000, int_param(q.get("limit"), 200)))
                 before = int_param(q.get("before"), None)
                 sql = ("SELECT id, started_at, ended_at, energy_wh, duration_s, charge_s, "
-                       "peak_power_w, peak_handle_c, is_open, "
+                       "peak_power_w, peak_handle_c, is_open, spot_sek, spot_area, "
                        "CASE WHEN grid_v_n>0 THEN grid_v_sum/grid_v_n END AS avg_grid_v "
                        "FROM session")
                 args = []
@@ -787,6 +926,9 @@ border:1px solid var(--line);border-radius:10px}
 .glink{color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;
 border:1px solid var(--line);border-radius:8px;padding:6px 12px;white-space:nowrap}
 .glink:hover{border-color:var(--accent)}
+.nospot .spot{display:none}
+.credit{margin:10px 0 0}
+.credit a{color:var(--dim)}
 @media(prefers-color-scheme:light){:root{--bg:#f6f7f9;--card:#fff;--line:#e3e6ea;
 --fg:#1a1f26;--dim:#68727f}}
 </style></head><body><div class="wrap">
@@ -797,9 +939,10 @@ border:1px solid var(--line);border-radius:8px;padding:6px 12px;white-space:nowr
 <div class="grid" id="live"></div>
 <h2>Power, last 24 hours</h2><canvas id="chart"></canvas>
 <h2>Lifetime</h2><div class="grid" id="lt"></div>
-<h2>Charge sessions</h2><div class="tbl"><table id="sess">
-<thead><tr><th>Started</th><th>Duration</th><th>Energy</th><th>Peak power</th>
-<th>Peak handle</th><th>Avg grid</th></tr></thead><tbody></tbody></table></div>
+<h2>Charge sessions</h2><div class="tbl"><table id="sess" class="nospot">
+<thead><tr><th>Started</th><th>Duration</th><th>Energy</th><th class="spot">Spot cost</th>
+<th>Peak power</th><th>Peak handle</th><th>Avg grid</th></tr></thead><tbody></tbody></table></div>
+<div class="sub credit" id="credit"></div>
 </div><script>
 const f=(n,d=1)=>n==null?"–":Number(n).toFixed(d);
 const dur=s=>{if(s==null)return"–";s=Math.round(s);const h=Math.floor(s/3600),
@@ -848,6 +991,7 @@ async function load(){
   tile("Phase current",[v.currentA_a,v.currentB_a,v.currentC_a].map(x=>f(x)).join(" / "),"A",1)+
   tile("Handle",f(v.handle_temp_c),"°C")+
   tile("Board",f(v.pcba_temp_c),"°C")+
+  (d.spot?tile("Spot price "+d.spot.area,f(d.spot.sek_per_kwh,2),"SEK/kWh"):"")+
   (d.open_session?tile("In progress",f(d.open_session.energy_wh/1000,2),"kWh"):"");
  const lt=d.lifetime;
  document.getElementById("lt").innerHTML=lt?
@@ -865,11 +1009,17 @@ async function load(){
  document.querySelector("#sess tbody").innerHTML=ss.length?ss.map(s=>
   `<tr><td>${dt(s.started_at)}${s.is_open?' <span class="state s-charge">open</span>':""}</td>
    <td>${dur(s.duration_s)}</td><td>${f(s.energy_wh/1000,2)} kWh</td>
+   <td class="spot">${s.spot_sek!=null?f(s.spot_sek,2)+" SEK":"–"}</td>
    <td>${f(s.peak_power_w/1000,2)} kW</td>
    <td>${s.peak_handle_c>-99?f(s.peak_handle_c)+" °C":"–"}</td>
    <td>${f(s.avg_grid_v)} V</td></tr>`).join(""):
-  '<tr><td colspan="6" style="color:var(--dim)">No sessions yet — one is recorded '+
+  '<tr><td colspan="7" style="color:var(--dim)">No sessions yet — one is recorded '+
   'when a vehicle is plugged in.</td></tr>';
+ const areas=[...new Set([d.spot&&d.spot.area,...ss.map(s=>s.spot_area)].filter(Boolean))];
+ document.getElementById("sess").classList.toggle("nospot",!areas.length);
+ document.getElementById("credit").innerHTML=areas.length?
+  `Spot prices for ${areas.sort().join(" and ")}, excluding VAT, provided by `+
+  '<a href="https://www.elprisetjustnu.se">Elpriset just nu.se</a>':"";
  draw(await (await fetch("/api/history?hours=24")).json());
 }
 function draw(h){
@@ -939,6 +1089,14 @@ def check():
     else:
         print("         not created yet (it appears on first run)")
     print(f"backups  {backup_dir()} — every {BACKUP_INTERVAL_H} h, keeping {BACKUP_KEEP}")
+    if PRICE_AREA:
+        print(f"prices   {PRICE_AREA} from {PRICE_URL}")
+        try:
+            today = time.strftime("%Y/%m-%d", time.gmtime(time.time() + 7200))
+            with urllib.request.urlopen(price_request(today), timeout=10) as r:
+                print(f"         reachable — {len(json.load(r))} prices for {today}")
+        except Exception as e:
+            print(f"         NOT reachable: {e}")
     return 0
 
 
@@ -975,6 +1133,8 @@ def main(argv):
     signal.signal(signal.SIGINT, clear_heartbeat)
     poller.start()
     Backups().start()
+    if PRICE_AREA:
+        pricer.start()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"WallConnectorLog: charger {HOST}, listening on :{PORT}, db {DB_PATH}", flush=True)
     srv.serve_forever()

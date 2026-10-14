@@ -22,6 +22,7 @@ cloud, no vendor API.
 
 - Live status, a power graph and the session table on a built-in web page
 - A session log: start, end, duration, energy, peak power, peak handle temperature, average grid voltage
+- In Sweden, what each session cost at the spot price, quarter hour by quarter hour
 - Grafana with a ready-made dashboard — power, per-phase voltage and current, charger state,
   temperatures, WiFi signal and the lifetime counters — no login, up from the first start
 - A JSON API and a Prometheus `/metrics` endpoint
@@ -101,6 +102,7 @@ Everything in `.env` reaches the logger, so any of these can be set there.
 | `WC_BACKUP_DIR` | `<db folder>/backups` | Where backups are written |
 | `WC_GRAFANA_URL` | `:3399` in the image | Where the Grafana link points. The default follows the host you browse from; set a full URL such as `https://grafana.example.com` in `.env` when Grafana has a reverse-proxy name of its own; empty hides the link. |
 | `WC_GRAFANA_HEALTH` | `http://grafana:3000/api/health` | Checked before the link is shown |
+| `WC_PRICE_AREA` | – | Swedish price area, `SE1` to `SE4`. Set, every session is priced at the spot price; see below. |
 
 ## Backup and restore
 
@@ -126,8 +128,8 @@ docker compose start wallconnectorlog
 | Path | Returns |
 |---|---|
 | `/` | The web page |
-| `/api/live` | Latest reading, lifetime counters, device info, open session |
-| `/api/sessions` | The most recent sessions, newest first. `limit` (default 200, max 1000) and `before=<id>` page further back |
+| `/api/live` | Latest reading, lifetime counters, device info, open session, the spot price right now |
+| `/api/sessions` | The most recent sessions, newest first, with `spot_sek` and `spot_area` when spot prices are on. `limit` (default 200, max 1000) and `before=<id>` page further back |
 | `/api/sessions/<id>/samples` | Every stored sample of one session, per-phase voltages and currents included. Empty once the samples have aged out of `WC_RETAIN_DAYS`; 404 for an unknown id |
 | `/api/history?hours=24` | Raw samples for a period |
 | `/api/wifi?hours=24` | Wi-Fi signal history for a period: RSSI, SNR, connected and internet flags, one row per slow poll |
@@ -168,6 +170,19 @@ before being stored.
 One more quirk: while the button on the plug is pressed the handle thermistor reads 255 °C,
 because the button shares its wires. That value is stored as no reading, so a session's peak
 handle temperature is not set by the button that ended it.
+
+## Spot prices
+
+With `WC_PRICE_AREA` set, the logger fetches the day-ahead price for every quarter hour from
+[Elpriset just nu.se](https://www.elprisetjustnu.se), which publishes them for the four Swedish
+areas for free. Each session's energy is split by the quarter hour it was drawn in and priced at
+that quarter's price, so the time of day a car charges shows in what it cost. The cost is stored
+with the area it was priced in, appears on the web page and in `/api/sessions`, and is updated
+every five minutes while a session is open.
+
+It is the spot price alone, excluding VAT: network fees, energy tax and the supplier's margin
+come on top. Sessions recorded before the setting was turned on are priced at the next start,
+as long as their samples are still within `WC_RETAIN_DAYS`.
 
 ## How sessions are derived
 

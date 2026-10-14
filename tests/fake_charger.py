@@ -4,14 +4,20 @@ without hardware.
 
 Timeline from start: idle, plugged in, charging with rising energy, charging
 stopped with the button on the plug and still plugged, then unplugged.
+
+It also serves spot price files in the shape elprisetjustnu.se uses, one flat
+price for every quarter hour, and like that site refuses Python's default user
+agent.
 """
 import json
 import time
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 T0 = time.time()
 PLUG_IN, CHARGE_START, CHARGE_END, UNPLUG = 3, 6, 16, 19
 PEAK_WH = 7000.0
+SPOT_SEK = 1.25
 
 
 def vitals():
@@ -45,6 +51,16 @@ def vitals():
     }
 
 
+def prices(path):
+    year, name = path.split("/")[-2:]
+    month, day = name.split("_")[0].split("-")
+    start = datetime(int(year), int(month), int(day), tzinfo=UTC)
+    return [{"SEK_per_kWh": SPOT_SEK, "EUR_per_kWh": 0.11, "EXR": 11.2,
+             "time_start": (start + timedelta(minutes=15 * i)).isoformat(),
+             "time_end": (start + timedelta(minutes=15 * i + 15)).isoformat()}
+            for i in range(96)]
+
+
 BODIES = {
     "lifetime": lambda: {"energy_wh": 2734298, "charge_starts": 680,
                          "connector_cycles": 322, "charging_time_s": 1835002,
@@ -66,17 +82,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         key = self.path.rsplit("/", 1)[-1]
-        if key in BODIES:
-            body = json.dumps(BODIES[key]()).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+        if "/prices/" in self.path:
+            if self.headers.get("User-Agent", "").startswith("Python-urllib"):
+                self.reply(403)
+            else:
+                self.reply(200, prices(self.path))
+        elif key in BODIES:
+            self.reply(200, BODIES[key]())
         else:
-            self.send_response(500)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+            self.reply(500)
+
+    def reply(self, code, obj=None):
+        body = b"" if obj is None else json.dumps(obj).encode()
+        self.send_response(code)
+        if obj is not None:
+            self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
 
 if __name__ == "__main__":
