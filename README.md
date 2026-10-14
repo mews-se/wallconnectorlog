@@ -128,7 +128,7 @@ docker compose start wallconnectorlog
 | Path | Returns |
 |---|---|
 | `/` | The web page |
-| `/api/live` | Latest reading, lifetime counters, device info, open session, the spot price right now |
+| `/api/live` | Latest reading, lifetime counters, device info, open session, the spot price right now, the server's version |
 | `/api/sessions` | The most recent sessions, newest first, with `spot_sek` and `spot_area` when spot prices are on. `limit` (default 200, max 1000) and `before=<id>` page further back |
 | `/api/sessions/<id>/samples` | Every stored sample of one session, per-phase voltages and currents included. Empty once the samples have aged out of `WC_RETAIN_DAYS`; 404 for an unknown id |
 | `/api/history?hours=24` | Raw samples for a period |

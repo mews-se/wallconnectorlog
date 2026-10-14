@@ -21,6 +21,8 @@ import urllib.request
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+VERSION = "1.3.1"
+
 # Tesla documents none of this. The mapping below is the intersection of the Home
 # Assistant integration, the ioBroker adapter and a list derived from the Wall
 # Monitor app — they agree on every entry except 7.
@@ -775,6 +777,7 @@ class Handler(BaseHTTPRequestHandler):
                 state = (live.get("vitals") or {}).get("evse_state")
                 live["evse_state_text"] = EVSE_STATE.get(state)
                 live["relay_v"] = relay_volts(live.get("vitals") or {})
+                live["version"] = VERSION
                 live["grafana"] = ({"url": GRAFANA_URL, "up": poller.grafana_up}
                                    if GRAFANA_URL else None)
                 if PRICE_AREA:
@@ -923,6 +926,7 @@ border:1px solid var(--line);border-radius:10px}
 .head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:11px}
 .brand img{width:34px;height:34px;border-radius:8px;display:block}
+.ver{color:var(--dim);font-size:12px;align-self:flex-end;margin-bottom:3px}
 .glink{color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;
 border:1px solid var(--line);border-radius:8px;padding:6px 12px;white-space:nowrap}
 .glink:hover{border-color:var(--accent)}
@@ -933,7 +937,8 @@ border:1px solid var(--line);border-radius:8px;padding:6px 12px;white-space:nowr
 --fg:#1a1f26;--dim:#68727f}}
 </style></head><body><div class="wrap">
 <div class="head">
-<div class="brand"><img src="__ICON__" alt=""><h1>WallConnectorLog</h1></div>
+<div class="brand"><img src="__ICON__" alt=""><h1>WallConnectorLog</h1>
+<span class="ver">__VERSION__</span></div>
 <span id="grafana"></span></div>
 <div class="sub" id="sub">connecting…</div>
 <div class="grid" id="live"></div>
@@ -1053,7 +1058,7 @@ function draw(h){
 load();setInterval(load,5000);
 </script></body></html>"""
 
-PAGE = PAGE_TEMPLATE.replace("__ICON__", ICON)
+PAGE = PAGE_TEMPLATE.replace("__ICON__", ICON).replace("__VERSION__", VERSION)
 
 
 USAGE = """WallConnectorLog
@@ -1136,7 +1141,8 @@ def main(argv):
     if PRICE_AREA:
         pricer.start()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
-    print(f"WallConnectorLog: charger {HOST}, listening on :{PORT}, db {DB_PATH}", flush=True)
+    print(f"WallConnectorLog {VERSION}: charger {HOST}, listening on :{PORT}, db {DB_PATH}",
+          flush=True)
     srv.serve_forever()
     return 0
 

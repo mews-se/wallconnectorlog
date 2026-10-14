@@ -61,7 +61,9 @@ try:
     page_before = get(f"/api/sessions?before={sid}")
     page_bad = get("/api/sessions?limit=abc&before=abc")
     samples = get(f"/api/sessions/{sid}/samples") if sessions else []
-    spot_now = get("/api/live").get("spot")
+    live = get("/api/live")
+    spot_now = live.get("spot")
+    page = urllib.request.urlopen("http://127.0.0.1:8298/", timeout=5).read().decode()
     wifi_api = get("/api/wifi?hours=1")
     lifetime_api = get("/api/lifetime?days=1")
     print(f"samples in session: {len(samples)}")
@@ -146,6 +148,8 @@ try:
         "session priced at the spot price": spot is not None and abs(spot - expected) < 0.01
                                             and sessions[0]["spot_area"] == "SE3",
         "current spot price served": spot_now == {"area": "SE3", "sek_per_kwh": 1.25},
+        "version on the page": bool(live.get("version"))
+                               and f'<span class="ver">{live["version"]}</span>' in page,
         "older session priced at start": old_spot is not None and abs(old_spot - 3.75) < 0.01
                                          and old_area == "SE3",
     }
