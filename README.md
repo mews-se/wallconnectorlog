@@ -16,7 +16,8 @@ The charger keeps no history: it reports what is happening right now, plus lifet
 that only go up. Phone apps read those counters when you happen to open them, so the numbers
 land on the day you opened the app rather than the day you charged. Something that runs
 continuously does not have that problem. Everything stays on your network: no account, no
-cloud, no vendor API.
+cloud, no vendor API. The logger goes online only for the spot prices, and only if you turn them
+on; Grafana's usage reporting and update checks are switched off.
 
 ## What you get
 
@@ -30,7 +31,7 @@ cloud, no vendor API.
 
 Images are published on GHCR, **`ghcr.io/mews-se/wallconnectorlog`** and its companion
 **`…/wallconnectorlog-grafana`**, and mirrored to Docker Hub under **`mewsse/`**. Same builds,
-same tags, amd64 and arm64. `latest` follows the main branch; updating is three commands, see
+same tags, amd64 and arm64. `latest` follows the main branch; updating is two commands, see
 below. To build from source instead, clone this repository and add `build: .` and
 `build: grafana` to the two services.
 
@@ -51,8 +52,9 @@ returns JSON, you have the right one), then:
 docker compose up -d
 ```
 
-Open `http://localhost:4680` for the app and `http://localhost:3399` for Grafana; a **Graphs in
-Grafana** link also appears on the main page once it answers. The port is the Tesla cell format.
+Open `http://localhost:4680` for the app (the port is the Tesla cell format) and
+`http://localhost:3399` for Grafana; a **Graphs in Grafana** link also appears on the main page
+once it answers.
 
 The database lands in `./data`, created and owned correctly on first start: the logger container
 starts as root, fixes the bind mount that Docker creates root-owned, and drops to uid 1000
@@ -102,6 +104,7 @@ Everything in `.env` reaches the logger, so any of these can be set there.
 | `WC_GRAFANA_URL` | `:3399` in the image | Where the Grafana link points. The default follows the host you browse from; set a full URL such as `https://grafana.example.com` in `.env` when Grafana has a reverse-proxy name of its own; empty hides the link. |
 | `WC_GRAFANA_HEALTH` | `http://grafana:3000/api/health` | Checked before the link is shown |
 | `WC_PRICE_AREA` | | Swedish price area, `SE1` to `SE4`. Set, every session is priced at the spot price; see below. |
+| `TZ` | `UTC` | Time zone of the backup file names. The page and Grafana show times in the browser's time zone. |
 
 ## Backup and restore
 
@@ -109,7 +112,8 @@ Everything lives in one SQLite file, but **do not copy it while the service runs
 keeps recent writes in a separate `-wal` file, and a plain copy silently loses them. These take
 consistent snapshots of the live database instead:
 
-- Automatic: written to `data/backups/` every 24 hours, keeping the last 7
+- Automatic: written to `data/backups/` every 24 hours, keeping the last 7. The hours count from
+  when the logger started, so a restart puts the next one a full day away
 - On demand: `docker compose exec wallconnectorlog python wallconnectorlog.py backup`
 - Over HTTP: `curl -OJ http://localhost:4680/api/backup` (`/api/backups` lists them)
 
@@ -130,8 +134,8 @@ docker compose start wallconnectorlog
 | `/api/live` | Latest reading, lifetime counters, device info, open session, the spot price right now, the server's version |
 | `/api/sessions` | The most recent sessions, newest first, with `spot_sek` and `spot_area` when spot prices are on. `limit` (default 200, max 1000) and `before=<id>` page further back |
 | `/api/sessions/<id>/samples` | Every stored sample of one session, per-phase voltages and currents included. Empty once the samples have aged out of `WC_RETAIN_DAYS`; 404 for an unknown id |
-| `/api/history?hours=24` | Raw samples for a period |
-| `/api/wifi?hours=24` | Wi-Fi signal history for a period: RSSI, SNR, connected and internet flags, one row per slow poll |
+| `/api/history?hours=24` | Raw samples for a period, at most 720 hours back |
+| `/api/wifi?hours=24` | Wi-Fi signal history for a period, at most 720 hours back: RSSI, SNR, connected and internet flags, one row per slow poll |
 | `/api/lifetime?days=30` | The charger's lifetime counters, the last reading of each UTC day, at most a year back |
 | `/api/errors` | Recent failed polls |
 | `/metrics` | Prometheus exposition |
@@ -186,10 +190,11 @@ as long as their samples are still within `WC_RETAIN_DAYS`.
 ## How sessions are derived
 
 `vehicle_connected` going true opens a session; going false closes it. While it is open, the
-charger's own `session_energy_wh` and `session_s` are tracked, along with peak power, peak
-handle temperature and average grid voltage. Time with `contactor_closed` set is counted
-separately, so a session records both how long the car was plugged in and how long it actually
-drew current. Power is computed per phase as voltage times current, forced to zero while the
+charger's own `session_energy_wh` is tracked, along with peak power, peak handle temperature
+and average grid voltage. Time with `contactor_closed` set is counted separately, so a session
+records both how long the car was plugged in and how long it actually drew current. Both are
+timed by the logger itself (`duration_s` and `charge_s`), not taken from the charger's
+`session_s`. Power is computed per phase as voltage times current, forced to zero while the
 contactor is open; the charger reports a volt or two of noise on idle phases.
 
 A note on the lifetime counters: `charge_starts` counts contactor cycles, not sessions; a
