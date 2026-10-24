@@ -35,9 +35,9 @@ env = dict(os.environ, WC_HOST="127.0.0.1:8250", WC_DB=DB, WC_PORT="8297",
            WC_INTERVAL_IDLE="1", WC_INTERVAL_CONNECTED="1", WC_INTERVAL_CHARGING="1")
 
 
-def run_cli(*args):
-    return subprocess.run([sys.executable, APP, *args],
-                          env=env, capture_output=True, text=True)
+def run_cli(*args, **extra):
+    return subprocess.run([sys.executable, APP, *args], env=dict(env, **extra),
+                          capture_output=True, text=True, timeout=30)
 
 
 def rows(path, table):
@@ -100,6 +100,14 @@ finally:
 cli = run_cli("backup", os.path.join(BACKUPS, "manual.db"))
 checks["cli backup works"] = cli.returncode == 0 and os.path.exists(
     os.path.join(BACKUPS, "manual.db"))
+
+# Without a charger address the logger refuses to start, but a backup needs
+# no charger and still works.
+unset = run_cli(WC_HOST="")
+checks["refuses to start without WC_HOST"] = (unset.returncode == 1
+                                              and "WC_HOST is not set" in unset.stdout)
+cli = run_cli("backup", os.path.join(BACKUPS, "no-host.db"), WC_HOST="")
+checks["backup works without WC_HOST"] = cli.returncode == 0
 
 bad = os.path.join(HERE, "not-a-database.db")
 with open(bad, "wb") as fh:

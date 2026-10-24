@@ -51,7 +51,7 @@ EVSE_STATE = {
 # config_status, and the Wall Monitor authors state plainly that they do not know
 # what the alert counter means either. Store the raw values, show the raw values.
 
-HOST = os.environ.get("WC_HOST", "10.0.1.249").strip()
+HOST = os.environ.get("WC_HOST", "").strip()
 # Accept a pasted URL as well as a bare address.
 for _prefix in ("http://", "https://"):
     HOST = HOST.removeprefix(_prefix)
@@ -1124,11 +1124,15 @@ def main(argv):
             print("usage: wallconnectorlog.py restore FILE")
             return 2
         return restore(argv[2])
-    if cmd == "check":
-        return check()
-    if cmd != "run":
+    if cmd not in ("check", "run"):
         print(USAGE)
         return 2
+    if not HOST:
+        print("WC_HOST is not set. Set it to your Wall Connector's address, then try again.",
+              flush=True)
+        return 1
+    if cmd == "check":
+        return check()
 
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     db = connect()
