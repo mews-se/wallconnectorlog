@@ -8,10 +8,10 @@ services:
     environment:
       - WC_HOST=${WC_HOST:?set WC_HOST to your Wall Connector's address}
       - TZ=${TZ:-UTC}
-      - WC_INTERVAL_CHARGING=5
-      - WC_INTERVAL_CONNECTED=15
-      - WC_INTERVAL_IDLE=60
-      - WC_RETAIN_DAYS=90
+      - WC_INTERVAL_CHARGING=${WC_INTERVAL_CHARGING:-5}
+      - WC_INTERVAL_CONNECTED=${WC_INTERVAL_CONNECTED:-15}
+      - WC_INTERVAL_IDLE=${WC_INTERVAL_IDLE:-60}
+      - WC_RETAIN_DAYS=${WC_RETAIN_DAYS:-90}
     volumes:
       - ./data:/data
     ports:
