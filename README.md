@@ -9,13 +9,13 @@
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A self-hosted logger for the **Tesla Wall Connector Gen 3**. It polls the charger's local API,
-stores the readings, and — the part nothing else does — derives **charge sessions** with real
+stores the readings and, the part nothing else does, derives **charge sessions** with real
 start and end times.
 
 The charger keeps no history: it reports what is happening right now, plus lifetime counters
 that only go up. Phone apps read those counters when you happen to open them, so the numbers
 land on the day you opened the app rather than the day you charged. Something that runs
-continuously does not have that problem. Everything stays on your network — no account, no
+continuously does not have that problem. Everything stays on your network: no account, no
 cloud, no vendor API.
 
 ## What you get
@@ -23,20 +23,20 @@ cloud, no vendor API.
 - Live status, a power graph and the session table on a built-in web page
 - A session log: start, end, duration, energy, peak power, peak handle temperature, average grid voltage
 - In Sweden, what each session cost at the spot price, quarter hour by quarter hour
-- Grafana with a ready-made dashboard — power, per-phase voltage and current, charger state,
-  temperatures, WiFi signal and the lifetime counters — no login, up from the first start
+- Grafana with a ready-made dashboard: power, per-phase voltage and current, charger state,
+  temperatures, WiFi signal and the lifetime counters; no login, up from the first start
 - A JSON API and a Prometheus `/metrics` endpoint
 - An iPhone app that reads all of it: [WallConnectorLog for iOS](https://apps.apple.com/app/wallconnectorlog/id6807546205), see below
 
-Images are published on GHCR — **`ghcr.io/mews-se/wallconnectorlog`** and its companion
-**`…/wallconnectorlog-grafana`** — and mirrored to Docker Hub under **`mewsse/`**. Same builds,
+Images are published on GHCR, **`ghcr.io/mews-se/wallconnectorlog`** and its companion
+**`…/wallconnectorlog-grafana`**, and mirrored to Docker Hub under **`mewsse/`**. Same builds,
 same tags, amd64 and arm64. `latest` follows the main branch; updating is three commands, see
 below. To build from source instead, clone this repository and add `build: .` and
 `build: grafana` to the two services.
 
 ## Quick start
 
-Two files are all you need — no clone, no directories to prepare:
+Two files are all you need. No clone, no directories to prepare:
 
 ```bash
 mkdir wallconnectorlog && cd wallconnectorlog
@@ -51,9 +51,8 @@ returns JSON, you have the right one), then:
 docker compose up -d
 ```
 
-Open `http://localhost:4680` for the app — the port is the Tesla cell format — and
-`http://localhost:3399` for Grafana; a **Graphs in Grafana** link also appears on the main page
-once it answers.
+Open `http://localhost:4680` for the app and `http://localhost:3399` for Grafana; a **Graphs in
+Grafana** link also appears on the main page once it answers. The port is the Tesla cell format.
 
 The database lands in `./data`, created and owned correctly on first start: the logger container
 starts as root, fixes the bind mount that Docker creates root-owned, and drops to uid 1000
@@ -79,7 +78,7 @@ never gets overwritten.
 
 Opens straight onto the dashboard: the datasource, the dashboard, the SQLite plugin and no-login
 anonymous access are all baked into the `wallconnectorlog-grafana` image, and its own state
-lives in a named volume. Visitors get the Viewer role — add
+lives in a named volume. Visitors get the Viewer role; add
 `GF_AUTH_ANONYMOUS_ORG_ROLE=Editor` under the grafana service's `environment:` to edit panels
 from the browser (any `GF_*` setting can be overridden the same way). To run without Grafana,
 start just the logger: `docker compose up -d wallconnectorlog`.
@@ -90,7 +89,7 @@ Everything in `.env` reaches the logger, so any of these can be set there.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `WC_HOST` | – | Charger address. Required. |
+| `WC_HOST` | | Charger address. Required. |
 | `WC_DB` | `/data/wallconnectorlog.db` | SQLite file |
 | `WC_PORT` | `4680` | Port to listen on. Under Docker, change the `ports:` line instead. |
 | `WC_INTERVAL_CHARGING` | `5` | Poll seconds while charging |
@@ -102,11 +101,11 @@ Everything in `.env` reaches the logger, so any of these can be set there.
 | `WC_BACKUP_DIR` | `<db folder>/backups` | Where backups are written |
 | `WC_GRAFANA_URL` | `:3399` in the image | Where the Grafana link points. The default follows the host you browse from; set a full URL such as `https://grafana.example.com` in `.env` when Grafana has a reverse-proxy name of its own; empty hides the link. |
 | `WC_GRAFANA_HEALTH` | `http://grafana:3000/api/health` | Checked before the link is shown |
-| `WC_PRICE_AREA` | – | Swedish price area, `SE1` to `SE4`. Set, every session is priced at the spot price; see below. |
+| `WC_PRICE_AREA` | | Swedish price area, `SE1` to `SE4`. Set, every session is priced at the spot price; see below. |
 
 ## Backup and restore
 
-Everything lives in one SQLite file, but **do not copy it while the service runs** — WAL mode
+Everything lives in one SQLite file, but **do not copy it while the service runs**: WAL mode
 keeps recent writes in a separate `-wal` file, and a plain copy silently loses them. These take
 consistent snapshots of the live database instead:
 
@@ -114,7 +113,7 @@ consistent snapshots of the live database instead:
 - On demand: `docker compose exec wallconnectorlog python wallconnectorlog.py backup`
 - Over HTTP: `curl -OJ http://localhost:4680/api/backup` (`/api/backups` lists them)
 
-Restore with the service stopped — it refuses a database that is in use, verifies the file
+Restore with the service stopped; it refuses a database that is in use, verifies the file
 first, and saves the current database alongside before replacing it:
 
 ```bash
@@ -152,10 +151,10 @@ address, on your own network or through a reverse proxy with a certificate. Its 
 ## What the charger reports, and what it means
 
 Tesla documents none of the API. `evse_state` is translated using the mapping the Home Assistant
-integration, the ioBroker adapter and the Wall Monitor app agree on — with one deliberate
+integration, the ioBroker adapter and the Wall Monitor app agree on, with one deliberate
 difference: **state 7 is not an error.** Existing lists call it "error" or "finished charging",
 but in captured charge sequences (`1 → 7 → 9 → 11 → 9 → 1`) it appears immediately after
-plugging in, with no session energy and no current — a transient hand-shake, shown here as
+plugging in, with no session energy and no current: a transient hand-shake, shown here as
 "Starting up".
 
 `evse_not_ready_reasons`, `config_status` and `current_alerts` are stored raw and never
@@ -191,9 +190,9 @@ charger's own `session_energy_wh` and `session_s` are tracked, along with peak p
 handle temperature and average grid voltage. Time with `contactor_closed` set is counted
 separately, so a session records both how long the car was plugged in and how long it actually
 drew current. Power is computed per phase as voltage times current, forced to zero while the
-contactor is open — the charger reports a volt or two of noise on idle phases.
+contactor is open; the charger reports a volt or two of noise on idle phases.
 
-A note on the lifetime counters: `charge_starts` counts contactor cycles, not sessions — a
+A note on the lifetime counters: `charge_starts` counts contactor cycles, not sessions; a
 single plug-in usually produces several. Do not divide lifetime energy by it and call the result
 an average session.
 
