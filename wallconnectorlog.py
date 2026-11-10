@@ -21,7 +21,7 @@ import urllib.request
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "1.3.1"
+VERSION = "1.4"
 
 # Tesla documents none of this. The mapping below is the intersection of the Home
 # Assistant integration, the ioBroker adapter and a list derived from the Wall
