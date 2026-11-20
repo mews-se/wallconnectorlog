@@ -896,8 +896,10 @@ PAGE_TEMPLATE = r"""<!doctype html>
 <link rel="apple-touch-icon" href="__ICON__">
 <style>
 :root{--bg:#0f1216;--card:#171b21;--line:#252b34;--fg:#e6eaf0;--dim:#8b96a5;
---accent:#4da3ff;--good:#3fb950;--warn:#d29922}
+--accent:#4da3ff;--good:#3fb950;--warn:#d29922;--volt:#8b7cf6;
+--t1:#2dd4bf;--t2:#f0883e;--t3:#f778ba;--p1:#39c5cf;--p2:#f0883e;--p3:#a371f7}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--fg);
 font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
 .wrap{max-width:1100px;margin:0 auto;padding:24px 18px 60px}
@@ -908,20 +910,46 @@ h1{font-size:19px;margin:0 0 2px;font-weight:600}
 .k{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
 .v{font-size:23px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
 .v small{font-size:13px;color:var(--dim);font-weight:400;margin-left:3px}
+.nt{font-size:12px;color:var(--good);margin-top:2px}
 .state{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
 .s-charge{background:rgba(63,185,80,.15);color:var(--good)}
 .s-conn{background:rgba(210,153,34,.15);color:var(--warn)}
 .s-idle{background:rgba(139,150,165,.15);color:var(--dim)}
 h2{font-size:14px;margin:26px 0 10px;color:var(--dim);font-weight:600;
 text-transform:uppercase;letter-spacing:.05em}
+.row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:7px}
+.seg button{background:none;border:0;color:var(--dim);font:inherit;font-size:12px;
+padding:3px 11px;cursor:pointer}
+.seg button.on{background:var(--line);color:var(--fg)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px 8px}
+.read{font-size:13px;color:var(--dim);min-height:20px;margin-bottom:4px;
+font-variant-numeric:tabular-nums}
+.read b{font-weight:600;white-space:nowrap}
+canvas{display:block;width:100%;height:190px;touch-action:pan-y;cursor:crosshair}
+canvas.low{height:150px}
+.legend{display:flex;flex-wrap:wrap;gap:2px 16px;font-size:12px;color:var(--dim);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;
+vertical-align:middle}
+.legend b{color:var(--fg);font-weight:600}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th{text-align:left;color:var(--dim);font-weight:500;font-size:11px;
 text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--line)}
 td{padding:9px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:0}
 .tbl{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:auto}
-canvas{width:100%;height:190px;background:var(--card);
-border:1px solid var(--line);border-radius:10px}
+#sess tr[data-id]{cursor:pointer}
+#sess tr[data-id]:hover td{background:rgba(127,127,127,.07)}
+#sess a,.tl{color:inherit;text-decoration:none}
+.tl{display:block}
+.tl:hover .card{border-color:var(--accent)}
+.more{display:block;margin:12px auto 0;background:none;color:var(--accent);font:inherit;
+font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:8px;padding:6px 14px;
+cursor:pointer}
+.more:hover{border-color:var(--accent)}
+.back{color:var(--accent);text-decoration:none;font-size:13px;font-weight:600}
+.dt{font-size:17px;font-weight:600;margin:14px 0 2px}
+.note{color:var(--dim);font-size:13px}
 .err{color:#f85149}
 .head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:11px}
@@ -934,27 +962,59 @@ border:1px solid var(--line);border-radius:8px;padding:6px 12px;white-space:nowr
 .credit{margin:10px 0 0}
 .credit a{color:var(--dim)}
 @media(prefers-color-scheme:light){:root{--bg:#f6f7f9;--card:#fff;--line:#e3e6ea;
---fg:#1a1f26;--dim:#68727f}}
+--fg:#1a1f26;--dim:#68727f;--volt:#6d5bd0;--t1:#0d9488;--t2:#d9691f;--t3:#d6418e;
+--p1:#0e8a99;--p2:#d9691f;--p3:#8250df}}
 </style></head><body><div class="wrap">
 <div class="head">
 <div class="brand"><img src="__ICON__" alt=""><h1>WallConnectorLog</h1>
 <span class="ver">__VERSION__</span></div>
 <span id="grafana"></span></div>
 <div class="sub" id="sub">connecting…</div>
+<div id="main">
 <div class="grid" id="live"></div>
-<h2>Power, last 24 hours</h2><canvas id="chart"></canvas>
+<div class="row"><h2>Power</h2><div class="seg" id="range"><button data-h="24">24 h</button>
+<button data-h="168">7 d</button><button data-h="720">30 d</button></div></div>
+<div class="box"><div class="read" id="r-power"></div><canvas id="c-power"></canvas></div>
+<h2>Grid quality</h2>
+<div class="box"><div class="read" id="r-grid"></div><canvas id="c-grid" class="low"></canvas>
+<div class="legend" id="gstat"></div></div>
 <h2>Lifetime</h2><div class="grid" id="lt"></div>
 <h2>Charge sessions</h2><div class="tbl"><table id="sess" class="nospot">
 <thead><tr><th>Started</th><th>Duration</th><th>Energy</th><th class="spot">Spot cost</th>
 <th>Peak power</th><th>Peak handle</th><th>Avg grid</th></tr></thead><tbody></tbody></table></div>
+<button class="more" id="more" hidden>Show older sessions</button>
+</div>
+<div id="detail" hidden>
+<a class="back" id="back" href="#">‹ Back</a>
+<div class="dt" id="d-title"></div><div class="sub" id="d-when"></div>
+<div class="grid" id="d-tiles"></div>
+<div id="d-curves" hidden>
+<h2>Power</h2>
+<div class="box"><div class="read" id="r-dpower"></div><canvas id="c-dpower"></canvas></div>
+<h2>Temperature</h2>
+<div class="box"><div class="read" id="r-temp"></div><canvas id="c-temp" class="low"></canvas>
+<div class="legend"><span><i style="background:var(--t1)"></i>Handle</span>
+<span><i style="background:var(--t2)"></i>PCBA</span>
+<span><i style="background:var(--t3)"></i>MCU</span></div></div>
+<div id="d-phases"><h2>Phase currents</h2>
+<div class="box"><div class="read" id="r-amp"></div><canvas id="c-amp" class="low"></canvas>
+<div class="legend"><span><i style="background:var(--p1)"></i>Phase A</span>
+<span><i style="background:var(--p2)"></i>Phase B</span>
+<span><i style="background:var(--p3)"></i>Phase C</span></div></div></div>
+</div>
+<p class="note" id="d-note"></p>
+</div>
 <div class="sub credit" id="credit"></div>
 </div><script>
+const $=id=>document.getElementById(id);
 const f=(n,d=1)=>n==null||isNaN(n)?"–":Number(n).toFixed(d);
 const dur=s=>{if(s==null)return"–";s=Math.round(s);const h=Math.floor(s/3600),
 m=Math.floor(s%3600/60);return h?`${h} h ${m} min`:`${m} min`};
 const dt=t=>t?new Date(t*1000).toLocaleString(undefined,{dateStyle:"short",timeStyle:"short"}):"–";
-function tile(k,v,u,small){return `<div class="card"><div class="k">${k}</div>
-<div class="v"${small?' style="font-size:17px"':""}>${v}${u?`<small>${u}</small>`:""}</div></div>`}
+const hm={hour:"2-digit",minute:"2-digit"};
+function tile(k,v,u,small,note){return `<div class="card"><div class="k">${k}</div>
+<div class="v"${small?' style="font-size:17px"':""}>${v}${u?`<small>${u}</small>`:""}</div>`+
+ (note?`<div class="nt">${note}</div>`:"")+"</div>"}
 // A bare port (":3399") is resolved against whatever host the page was opened
 // from, so the link works from any machine, not just the server itself.
 function grafanaHref(u){
@@ -962,12 +1022,231 @@ function grafanaHref(u){
  const m=String(u).match(/^:?(\d+)$/);
  return m?`${location.protocol}//${location.hostname}:${m[1]}`:u;
 }
+// Private windows may refuse storage; the range then starts at 24 h.
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},
+ set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+let hours=+store.get("wcl-hours");
+if(![24,168,720].includes(hours))hours=24;
+
+// Charts in one group share the moment being read, so on a session the
+// temperatures and phase currents can be read against the power at that time.
+const held={};
+const powerChart=g=>({group:g,u:"kW",m:.001,zero:1,floor:1000,
+ hint:"Drag the chart to read the power",s:[{k:"power_w",c:"--accent",u:"kW",m:.001,d:2,z:1}]});
+const charts={power:powerChart("o"),dpower:powerChart("s"),
+ grid:{group:"o",u:"V",span:4,hint:"Drag the chart to read the grid",
+  s:[{k:"grid_v",c:"--volt",u:"V",d:0},{k:"grid_hz",c:"--fg",u:"Hz",d:2,hide:1}]},
+ temp:{group:"s",u:"°C",span:4,hint:"Drag the chart to read the temperatures",
+  s:[["handle_c","Handle","--t1"],["pcba_c","PCBA","--t2"],["mcu_c","MCU","--t3"]]
+   .map(([k,n,c])=>({k,n,c,u:"°C",d:1,ok:v=>v>-99}))},
+ amp:{group:"s",u:"A",zero:1,floor:1,hint:"Drag the chart to read the phase currents",
+  s:[["amp_a","Phase A","--p1"],["amp_b","Phase B","--p2"],["amp_c","Phase C","--p3"]]
+   .map(([k,n,c])=>({k,n,c,u:"A",d:1}))}};
+const val=(s,q)=>{const v=q[s.k];return v==null?(s.z?0:null):s.ok&&!s.ok(v)?null:v};
+const thin=(r,n)=>{const k=Math.ceil(r.length/n);
+ return k>1?r.filter((_,i)=>i%k===0||i===r.length-1):r};
+function near(p,t){let a=0,b=p.length-1;
+ while(b-a>1){const m=(a+b)>>1;if(p[m].ts<t)a=m;else b=m}
+ return t-p[a].ts<p[b].ts-t?p[a]:p[b]}
+function readout(id){
+ const ch=charts[id],el=$("r-"+id),p=ch.pts,h=held[ch.group];
+ if(h==null||p.length<2){el.textContent=ch.hint;return}
+ const q=near(p,h),t=new Date(q.ts*1000);
+ el.innerHTML=(p[p.length-1].ts-p[0].ts>90000?
+  t.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",...hm}):
+  t.toLocaleTimeString(undefined,hm))+ch.s.map(s=>{const v=val(s,q);return v==null?"":
+  ` · ${s.n?s.n+" ":""}<b style="color:var(${s.c})">${f(v*(s.m||1),s.d)} ${s.u}</b>`}).join("");
+}
+function draw(id){
+ const ch=charts[id],c=$("c-"+id),W=c.clientWidth,H=c.clientHeight;
+ if(!W)return;
+ const d=devicePixelRatio||1,x=c.getContext("2d"),p=ch.pts;
+ c.width=W*d;c.height=H*d;x.scale(d,d);
+ const cs=getComputedStyle(document.documentElement),col=v=>cs.getPropertyValue(v).trim();
+ const vis=ch.s.filter(s=>!s.hide),L=0,R=W,T=4,B=H-18;
+ x.font="11px sans-serif";x.fillStyle=col("--dim");
+ readout(id);
+ let lo=Infinity,hi=-Infinity;
+ vis.forEach(s=>p.forEach(q=>{const v=val(s,q);
+  if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v)}}));
+ if(p.length<2||lo>hi){x.fillText("no data yet",2,16);return}
+ if(ch.zero){lo=0;hi=Math.max(hi,ch.floor)}
+ else{if(hi-lo<ch.span){const m=(hi+lo)/2;lo=m-ch.span/2;hi=m+ch.span/2}
+  const pad=(hi-lo)*.1;lo-=pad;hi+=pad}
+ const t0=p[0].ts,t1=p[p.length-1].ts,m=ch.m||1;
+ const px=t=>L+(t-t0)/(t1-t0||1)*(R-L),py=v=>B-(v-lo)/(hi-lo)*(B-T);
+ // Gridlines on a 1/2/5 step, so the curve can be read without opening Grafana.
+ const base=Math.pow(10,Math.floor(Math.log10((hi-lo)/4)));
+ const st=[1,2,5,10].map(k=>k*base).find(k=>(hi-lo)/k<=6);
+ x.strokeStyle=col("--line");x.lineWidth=1;
+ const labels=[];
+ for(let i=Math.floor(lo/st)+1;i*st<hi;i++){
+  const y=Math.round(py(i*st))+.5,sm=st*m;
+  x.beginPath();x.moveTo(L,y);x.lineTo(R,y);x.stroke();
+  if(y>14)labels.push([(i*sm).toFixed(sm<.1?2:sm<1?1:0)+" "+ch.u,y-3]);
+ }
+ // Time labels on whole local hours or days, as many as fit. Days are
+ // stepped by the calendar so a daylight saving change keeps them at midnight.
+ const step=[900,1800,3600,7200,10800,21600,43200,86400,172800,604800]
+  .find(s=>(t1-t0)/s<=Math.max(2,(R-L)/90))||604800,ticks=[];
+ if(step<86400){const z=-new Date(t0*1000).getTimezoneOffset()*60;
+  for(let t=Math.ceil((t0+z)/step)*step-z;t<=t1;t+=step)ticks.push(t)}
+ else{const D=new Date(t0*1000);D.setHours(24,0,0,0);
+  for(;D/1000<=t1;D.setDate(D.getDate()+step/86400))ticks.push(D/1000)}
+ ticks.forEach(t=>{
+  const tx=step<86400?new Date(t*1000).toLocaleTimeString(undefined,hm):
+   new Date(t*1000).toLocaleDateString(undefined,{day:"numeric",month:"short"});
+  const w=x.measureText(tx).width;
+  x.fillText(tx,Math.min(R-w,Math.max(L,px(t)-w/2)),H-3)});
+ vis.forEach(s=>{let on=0;
+  x.strokeStyle=col(s.c);x.lineWidth=vis.length>1?1.5:2;x.beginPath();
+  p.forEach(q=>{const v=val(s,q);if(v==null){on=0;return}
+   if(on)x.lineTo(px(q.ts),py(v));else x.moveTo(px(q.ts),py(v));on=1});
+  x.stroke()});
+ // Axis values go on top of the curves, on the card colour, so a line
+ // running through one cannot hide it.
+ labels.forEach(([s,y])=>{x.fillStyle=col("--card");
+  x.fillRect(L,y-9,x.measureText(s).width+4,12);x.fillStyle=col("--dim");x.fillText(s,L+2,y)});
+ const h=held[ch.group];
+ if(h!=null){const q=near(p,h),X=Math.round(px(q.ts))+.5;
+  x.strokeStyle=col("--dim");x.lineWidth=1;x.beginPath();x.moveTo(X,T);x.lineTo(X,B);x.stroke();
+  vis.forEach(s=>{const v=val(s,q);if(v==null)return;
+   x.fillStyle=col(s.c);x.beginPath();x.arc(X,py(v),3.5,0,7);x.fill()})}
+ ch.L=L;ch.R=R;
+}
+// The mouse reads by hovering, a finger by dragging; vertical swipes still
+// scroll. The reading stays where the pointer leaves the chart.
+function bind(id){
+ const c=$("c-"+id),at=e=>{const ch=charts[id],p=ch.pts;if(p.length<2||ch.R==null)return;
+  const fx=(e.clientX-c.getBoundingClientRect().left-ch.L)/(ch.R-ch.L);
+  held[ch.group]=p[0].ts+Math.min(1,Math.max(0,fx))*(p[p.length-1].ts-p[0].ts);
+  for(const k in charts)if(charts[k].group===ch.group)draw(k)};
+ c.onpointerdown=e=>{c.setPointerCapture(e.pointerId);at(e)};
+ c.onpointermove=e=>{if(e.buttons||e.pointerType==="mouse")at(e)};
+}
+for(const k in charts){charts[k].pts=[];bind(k)}
+
+let hist={h:0,at:0},req=0;
+async function loadHistory(force){
+ const h=hours,now=Date.now();
+ // A day comes with every poll. A month is tens of thousands of rows, so the
+ // longer ranges are fetched again every five minutes.
+ if(!force&&h>24&&hist.h===h&&now-hist.at<300000)return;
+ hist={h,at:now};const n=++req;
+ const rows=await (await fetch("/api/history?hours="+h)).json();
+ if(n!==req)return;
+ const g=rows.filter(r=>r.grid_v>0);
+ charts.power.pts=thin(rows,600);charts.grid.pts=thin(g,600);
+ let vl=1e9,vh=0,fl=1e9,fh=0;
+ g.forEach(r=>{vl=Math.min(vl,r.grid_v);vh=Math.max(vh,r.grid_v);
+  if(r.grid_hz>0){fl=Math.min(fl,r.grid_hz);fh=Math.max(fh,r.grid_hz)}});
+ $("gstat").innerHTML=g.length>1?`<span>Voltage <b>${f(vl,0)} – ${f(vh,0)} V</b></span>`+
+  (fh?`<span>Frequency <b>${f(fl,2)} – ${f(fh,2)} Hz</b></span>`:""):"";
+ draw("power");draw("grid");
+}
+const seg=$("range");
+const marks=()=>seg.querySelectorAll("button")
+ .forEach(b=>b.classList.toggle("on",+b.dataset.h===hours));
+seg.onclick=e=>{const h=+e.target.dataset.h;if(!h||h===hours)return;
+ hours=h;store.set("wcl-hours",h);held.o=null;marks();loadHistory(true)};
+
+// Sessions are kept by id, so the rows loaded with "Show older sessions" stay
+// when the next poll brings the newest page again.
+const sessions=new Map();
+let paged=false,end=true,live={};
+function renderSessions(){
+ const ss=[...sessions.values()].sort((a,b)=>b.id-a.id);
+ document.querySelector("#sess tbody").innerHTML=ss.length?ss.map(s=>
+  `<tr data-id="${s.id}"><td><a href="#session/${s.id}">${dt(s.started_at)}</a>`+
+  `${s.is_open?' <span class="state s-charge">open</span>':""}</td>
+   <td>${dur(s.duration_s)}</td><td>${f(s.energy_wh/1000,2)} kWh</td>
+   <td class="spot">${s.spot_sek!=null?f(s.spot_sek,2)+" SEK":"–"}</td>
+   <td>${f(s.peak_power_w/1000,2)} kW</td>
+   <td>${s.peak_handle_c>-99?f(s.peak_handle_c)+" °C":"–"}</td>
+   <td>${f(s.avg_grid_v)} V</td></tr>`).join(""):
+  '<tr><td colspan="7" style="color:var(--dim)">No sessions yet — one is recorded '+
+  'when a vehicle is plugged in.</td></tr>';
+ const areas=[...new Set([live.spot&&live.spot.area,...ss.map(s=>s.spot_area)].filter(Boolean))];
+ $("sess").classList.toggle("nospot",!areas.length);
+ $("credit").innerHTML=areas.length?
+  `Spot prices for ${areas.sort().join(" and ")}, excluding VAT, provided by `+
+  '<a href="https://www.elprisetjustnu.se">Elpriset just nu.se</a>':"";
+ $("more").hidden=end;
+}
+$("more").onclick=async()=>{
+ const r=await (await fetch("/api/sessions?before="+Math.min(...sessions.keys()))).json();
+ r.forEach(s=>sessions.set(s.id,s));paged=true;end=r.length<200;renderSessions()};
+
+function sessionTiles(s){
+ const st=new Date(s.started_at*1000),en=s.ended_at&&new Date(s.ended_at*1000);
+ const idle=s.duration_s!=null&&s.charge_s!=null?Math.max(0,s.duration_s-s.charge_s):null;
+ const share=idle!=null&&s.duration_s>0?Math.round(idle/s.duration_s*100):null;
+ const hc=s.peak_handle_c!=null&&s.peak_handle_c>-99;
+ $("d-title").textContent=st.toLocaleDateString(undefined,
+  {weekday:"long",day:"numeric",month:"long",year:"numeric"});
+ $("d-when").textContent=s.is_open?
+  `Plugged in at ${st.toLocaleTimeString(undefined,hm)}, still connected`:
+  `${st.toLocaleTimeString(undefined,hm)} to `+(en&&en.toDateString()===st.toDateString()?
+  en.toLocaleTimeString(undefined,hm):dt(s.ended_at));
+ $("d-tiles").innerHTML=
+  tile("Energy",f(s.energy_wh/1000,2),"kWh",0,
+   s.spot_sek!=null?`${f(s.spot_sek,2)} SEK spot ${s.spot_area||""}`:"")+
+  tile("Plugged in",dur(s.duration_s),"",1)+tile("Charging",dur(s.charge_s),"",1)+
+  tile("Idle",dur(idle),"",1)+tile("Idle share",share??"–",share==null?"":"%")+
+  tile("Peak power",f(s.peak_power_w/1000,2),"kW")+
+  tile("Peak handle",hc?f(s.peak_handle_c):"–",hc?"°C":"")+
+  tile("Grid average",f(s.avg_grid_v),"V");
+}
+// A closed session's samples are fetched once; the open one follows the poll,
+// plus one last time after it closes.
+let cur=null,back=false,listY=0;
+async function openSession(id){
+ if(!cur||cur.id!==id){cur={id,pts:null,open:0};held.s=null;
+  $("d-title").textContent=$("d-when").textContent="";$("d-tiles").innerHTML="";
+  $("d-curves").hidden=true;$("d-note").textContent="loading…"}
+ const c=cur;if(c.busy)return;c.busy=1;
+ try{
+  let s=sessions.get(id);
+  if(!s){const r=await (await fetch(`/api/sessions?before=${id+1}&limit=1`)).json();
+   if(r[0]&&r[0].id===id){s=r[0];sessions.set(id,s)}}
+  if(cur!==c)return;
+  if(!s){$("d-title").textContent="No such session";$("d-note").textContent="";return}
+  sessionTiles(s);
+  if(c.pts===null||s.is_open||c.open){c.open=s.is_open;
+   const r=await (await fetch(`/api/sessions/${id}/samples`)).json();
+   if(cur!==c)return;
+   c.pts=r;charts.dpower.pts=thin(r,600);
+   charts.temp.pts=thin(r.filter(q=>q.handle_c!=null||q.pcba_c!=null||q.mcu_c!=null),600);
+   charts.amp.pts=thin(r.filter(q=>q.amp_a!=null),600)}
+  const has=c.pts.length>1;
+  $("d-curves").hidden=!has;$("d-phases").hidden=charts.amp.pts.length<2;
+  $("d-note").textContent=has?"":s.is_open?"The curves appear with the first readings.":
+   "The samples behind the curves are kept for 90 days by default (WC_RETAIN_DAYS), "+
+   "so this session has none left. The figures above are kept for good.";
+  ["dpower","temp","amp"].forEach(draw);
+ }finally{c.busy=0}
+}
+function route(){
+ const m=/^#session\/(\d+)$/.exec(location.hash);
+ $("main").hidden=!!m;$("detail").hidden=!m;
+ if(m){if(cur)back=false;scrollTo(0,0);openSession(+m[1])}
+ else{cur=null;back=false;draw("power");draw("grid");scrollTo(0,listY)}
+}
+document.addEventListener("click",e=>{
+ const a=e.target.closest('a[href^="#session/"]'),tr=e.target.closest("#sess tr[data-id]");
+ if((!a&&!tr)||e.metaKey||e.ctrlKey||e.shiftKey)return;
+ e.preventDefault();listY=scrollY;back=true;
+ location.hash=a?a.getAttribute("href"):"#session/"+tr.dataset.id});
+// Back steps through history only when the overview is the page behind, so
+// the list comes back where it was; otherwise the link opens the overview.
+$("back").onclick=e=>{if(back){e.preventDefault();history.back()}};
 
 async function load(){
  let d;
  try{d=await (await fetch("/api/live")).json()}catch(e){
   document.getElementById("sub").innerHTML=
    '<span class="err">cannot reach the service</span>';return}
+ live=d;
  const sub=document.getElementById("sub");
  // textContent, not innerHTML: the error string can contain angle brackets
  // ("<urlopen error timed out>") that innerHTML would swallow as a tag.
@@ -997,7 +1276,8 @@ async function load(){
   tile("Handle",f(v.handle_temp_c),"°C")+
   tile("Board",f(v.pcba_temp_c),"°C")+
   (d.spot?tile("Spot price "+d.spot.area,f(d.spot.sek_per_kwh,2),"SEK/kWh"):"")+
-  (d.open_session?tile("In progress",f(d.open_session.energy_wh/1000,2),"kWh"):"");
+  (d.open_session?`<a class="tl" href="#session/${d.open_session.id}">`+
+   tile("In progress",f(d.open_session.energy_wh/1000,2),"kWh")+"</a>":"");
  const lt=d.lifetime;
  document.getElementById("lt").innerHTML=lt?
   tile("Delivered",f(lt.energy_wh/1000,0),"kWh")+
@@ -1011,51 +1291,14 @@ async function load(){
   '<div class="card"><div class="k">Lifetime</div><div class="v">–</div></div>';
 
  const ss=await (await fetch("/api/sessions")).json();
- document.querySelector("#sess tbody").innerHTML=ss.length?ss.map(s=>
-  `<tr><td>${dt(s.started_at)}${s.is_open?' <span class="state s-charge">open</span>':""}</td>
-   <td>${dur(s.duration_s)}</td><td>${f(s.energy_wh/1000,2)} kWh</td>
-   <td class="spot">${s.spot_sek!=null?f(s.spot_sek,2)+" SEK":"–"}</td>
-   <td>${f(s.peak_power_w/1000,2)} kW</td>
-   <td>${s.peak_handle_c>-99?f(s.peak_handle_c)+" °C":"–"}</td>
-   <td>${f(s.avg_grid_v)} V</td></tr>`).join(""):
-  '<tr><td colspan="7" style="color:var(--dim)">No sessions yet — one is recorded '+
-  'when a vehicle is plugged in.</td></tr>';
- const areas=[...new Set([d.spot&&d.spot.area,...ss.map(s=>s.spot_area)].filter(Boolean))];
- document.getElementById("sess").classList.toggle("nospot",!areas.length);
- document.getElementById("credit").innerHTML=areas.length?
-  `Spot prices for ${areas.sort().join(" and ")}, excluding VAT, provided by `+
-  '<a href="https://www.elprisetjustnu.se">Elpriset just nu.se</a>':"";
- draw(await (await fetch("/api/history?hours=24")).json());
+ ss.forEach(s=>sessions.set(s.id,s));
+ if(!paged)end=ss.length<200;
+ renderSessions();
+ if(cur)await openSession(cur.id);else await loadHistory();
 }
-function draw(h){
- const c=document.getElementById("chart"),x=c.getContext("2d"),d=devicePixelRatio;
- const w=c.width=c.clientWidth*d,ht=c.height=190*d;
- x.clearRect(0,0,w,ht);
- const cs=getComputedStyle(document.documentElement);
- if(!h.length){x.fillStyle=cs.getPropertyValue("--dim");
-  x.font=`${13*d}px sans-serif`;
-  x.fillText("no data yet",12*d,24*d);return}
- const t0=h[0].ts,t1=h[h.length-1].ts||t0+1;
- const max=Math.max(1000,...h.map(p=>p.power_w||0));
- const py=v=>ht-12*d-v/max*(ht-30*d);
- // Gridlines on a 1/2/5 step, so the curve can be read without opening Grafana.
- const base=Math.pow(10,Math.floor(Math.log10(max/4)));
- const step=[1,2,5,10].map(m=>m*base).find(s=>max/s<=6);
- x.strokeStyle=cs.getPropertyValue("--line");x.lineWidth=d;
- x.fillStyle=cs.getPropertyValue("--dim");x.font=`${11*d}px sans-serif`;
- for(let v=step;v<max;v+=step){
-  x.beginPath();x.moveTo(10*d,py(v));x.lineTo(w-10*d,py(v));x.stroke();
-  x.fillText((v/1000).toFixed(step<1000?1:0)+" kW",10*d,py(v)-3*d);
- }
- x.strokeStyle=cs.getPropertyValue("--accent");x.lineWidth=2*d;
- x.beginPath();
- h.forEach((p,i)=>{const px=(p.ts-t0)/(t1-t0||1)*(w-20*d)+10*d;
-  i?x.lineTo(px,py(p.power_w||0)):x.moveTo(px,py(p.power_w||0))});
- x.stroke();
- x.fillStyle=cs.getPropertyValue("--dim");
- x.fillText((max/1000).toFixed(1)+" kW",10*d,14*d);
-}
-load();setInterval(load,5000);
+addEventListener("hashchange",route);
+addEventListener("resize",()=>{for(const k in charts)draw(k)});
+marks();route();load();setInterval(load,5000);
 </script></body></html>"""
 
 PAGE = PAGE_TEMPLATE.replace("__ICON__", ICON).replace("__VERSION__", VERSION)

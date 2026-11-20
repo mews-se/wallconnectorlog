@@ -21,7 +21,8 @@ on; Grafana's usage reporting and update checks are switched off.
 
 ## What you get
 
-- Live status, a power graph and the session table on a built-in web page
+- A built-in web page: live status, power and grid charts you drag to read, and the session
+  table, where each session opens with its own power, temperature and phase current curves
 - A session log: start, end, duration, energy, peak power, peak handle temperature, average grid voltage
 - In Sweden, what each session cost at the spot price, quarter hour by quarter hour
 - Grafana with a ready-made dashboard: power, per-phase voltage and current, charger state,
